@@ -1,0 +1,36 @@
+{
+  "schema_version": "1.0",
+  "resolved_at": "2026-04-05",
+  "context": {
+    "dev_os": "darwin",
+    "platform": "desktop",
+    "language": "python",
+    "track": "light"
+  },
+  "substitutions": {},
+  "additions": [],
+  "skipped": [],
+  "installed": {
+    "phase_0": [
+      "Git",
+      "jq",
+      "Node.js",
+      "Docker",
+      "Colima",
+      "GPG",
+      "Python 3"
+    ],
+    "phase_1": [
+      "Node.js",
+      "Semgrep",
+      "gitleaks",
+      "Snyk CLI",
+      "Claude Code",
+      "Superpowers",
+      "Context7 MCP",
+      "Python 3",
+      "Xcode Command Line Tools",
+      "Qdrant"
+    ]
+  }
+}

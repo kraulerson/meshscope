@@ -1,0 +1,143 @@
+{
+  "platform": "common",
+  "suggestions": {
+    "budget_monthly": {
+      "default": [
+        {
+          "name": "$0-50/month",
+          "rank": 1,
+          "context": "Typical for Light track personal projects. Free tiers of Vercel, Supabase, Railway cover most MVPs.",
+          "when": "Light track, personal projects"
+        },
+        {
+          "name": "$50-500/month",
+          "rank": 2,
+          "context": "Standard track with moderate traffic. Covers paid tiers of hosting, database, and monitoring services.",
+          "when": "Standard track, <1000 users"
+        },
+        {
+          "name": "$500+/month",
+          "rank": 3,
+          "context": "Full track or enterprise internal tools with SLA requirements. Covers dedicated infrastructure and support contracts.",
+          "when": "Full track, enterprise, or high-availability requirements"
+        }
+      ]
+    },
+    "timeline_mvp": {
+      "default": [
+        {
+          "name": "4-6 weeks",
+          "rank": 1,
+          "context": "Realistic for a 3-5 feature MVP with one person working 10-15 hours/week. Includes planning phases.",
+          "when": "Light track, <5 features"
+        },
+        {
+          "name": "8-12 weeks",
+          "rank": 2,
+          "context": "Standard timeline for 5-10 features including security validation and user testing.",
+          "when": "Standard track, 5-10 features"
+        },
+        {
+          "name": "12-20 weeks",
+          "rank": 3,
+          "context": "Full track with enterprise governance, pen testing, and formal approval cycles.",
+          "when": "Full track or organizational deployment"
+        }
+      ]
+    },
+    "accessibility_target": {
+      "default": [
+        {
+          "name": "WCAG AA, Lighthouse 90+",
+          "rank": 1,
+          "context": "Industry standard. Covers most accessibility requirements. Required by many organizations.",
+          "when": "Most projects"
+        },
+        {
+          "name": "WCAG AAA",
+          "rank": 2,
+          "context": "Highest accessibility standard. Significantly more effort. Required for government or healthcare.",
+          "when": "Government, healthcare, or legal requirement"
+        },
+        {
+          "name": "Basic (keyboard navigation + screen reader)",
+          "rank": 3,
+          "context": "Minimum viable accessibility. Not recommended for external-facing apps.",
+          "when": "Internal tools with known user base"
+        }
+      ]
+    },
+    "uptime_expectation": {
+      "default": [
+        {
+          "name": "Best effort (99%)",
+          "rank": 1,
+          "context": "~7 hours downtime/month. Appropriate for internal tools and personal projects. No pager required.",
+          "when": "Light track, personal, internal tools"
+        },
+        {
+          "name": "Standard (99.9%)",
+          "rank": 2,
+          "context": "~43 minutes downtime/month. Standard for SaaS products. Requires monitoring and alerting.",
+          "when": "Standard track, external users"
+        },
+        {
+          "name": "High availability (99.99%+)",
+          "rank": 3,
+          "context": "~4 minutes downtime/month. The framework explicitly says it is not designed for this. Consider a dedicated platform team.",
+          "when": "Not recommended — see framework Known Limitations"
+        }
+      ]
+    },
+    "data_sensitivity": {
+      "default": [
+        {
+          "name": "Public",
+          "rank": 1,
+          "context": "No access controls needed. Safe to cache, log, and display freely.",
+          "when": "Content that is intentionally public"
+        },
+        {
+          "name": "Internal",
+          "rank": 2,
+          "context": "Requires authentication to access. Standard access controls.",
+          "when": "Business data, internal reports"
+        },
+        {
+          "name": "Confidential",
+          "rank": 3,
+          "context": "Restricted access, audit logging, encryption at rest. Need-to-know basis.",
+          "when": "Financial data, trade secrets, strategic plans"
+        },
+        {
+          "name": "PII (Personally Identifiable Information)",
+          "rank": 4,
+          "context": "Subject to privacy laws (GDPR, CCPA, etc.). Requires consent, retention policies, right to deletion.",
+          "when": "Names, emails, addresses, phone numbers, government IDs"
+        }
+      ]
+    },
+    "backup_strategy": {
+      "default": [
+        {
+          "name": "Daily automated backups with 30-day retention",
+          "rank": 1,
+          "context": "Standard for most applications. Most managed databases (Supabase, PlanetScale, Railway) include this.",
+          "when": "Most projects"
+        },
+        {
+          "name": "Point-in-time recovery",
+          "rank": 2,
+          "context": "Restore to any second within retention window. Available on Supabase Pro and most managed Postgres providers.",
+          "when": "Financial data, high-value records"
+        },
+        {
+          "name": "Manual exports only",
+          "rank": 3,
+          "context": "No automated backup. You export when you remember. Only appropriate for non-critical personal tools.",
+          "when": "Personal tools with easily recreated data"
+        }
+      ]
+    }
+  }
+}

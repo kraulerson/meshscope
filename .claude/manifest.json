@@ -1,0 +1,70 @@
+{
+  "frameworkVersion": "4.0.0",
+  "frameworkCommit": "2abde30",
+  "frameworkRepo": "kraulerson/claude-dev-framework",
+  "localClonePath": "~/.claude-dev-framework",
+  "lastSyncDate": "2026-04-05T14:07:51Z",
+  "profile": "desktop-app",
+  "profileInherits": [
+    "_base"
+  ],
+  "files": {},
+  "activeRules": [
+    "evaluate-before-implement",
+    "plan-before-code",
+    "test-per-bugfix",
+    "test-strategy",
+    "naming-conventions",
+    "context-management",
+    "session-discipline",
+    "superpowers-workflow",
+    "verify-after-complete",
+    "plan-closure",
+    "version-bump",
+    "changelog-update",
+    "future-scalability"
+  ],
+  "activeHooks": [
+    "session-start",
+    "enforce-evaluate",
+    "enforce-superpowers",
+    "stop-checklist",
+    "pre-compact-reminder",
+    "marker-tracker",
+    "marker-guard",
+    "enforce-plan-tracking",
+    "enforce-context7",
+    "verification-gate",
+    "pre-commit-checks",
+    "branch-safety"
+  ],
+  "projectConfig": {
+    "_base": {
+      "sourceExtensions": [
+        ".py",
+        ".js",
+        ".ts",
+        ".go",
+        ".rs",
+        ".java",
+        ".kt",
+        ".swift"
+      ],
+      "protectedBranches": [
+        "main"
+      ]
+    },
+    "branches": []
+  },
+  "discovery": {
+    "branch:HEAD\nmain": {
+      "purpose": "main development branch",
+      "devOS": "Darwin",
+      "targetPlatform": "Darwin desktop",
+      "buildTools": "python"
+    },
+    "futurePlatforms": null,
+    "discoveryDate": "2026-04-05",
+    "lastReviewDate": "2026-04-05"
+  }
+}

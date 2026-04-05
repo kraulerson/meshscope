@@ -1,0 +1,145 @@
+{
+  "platform": "desktop",
+  "suggestions": {
+    "authentication": {
+      "typescript": [
+        {
+          "name": "Local auth with OS keychain (keytar)",
+          "rank": 1,
+          "context": "For single-user desktop apps. Store credentials in OS keychain. No server needed.",
+          "when": "Personal tools, single user"
+        },
+        {
+          "name": "OAuth2 with PKCE (via system browser)",
+          "rank": 2,
+          "context": "For apps that connect to a web service. Opens system browser for auth, receives token via localhost redirect.",
+          "when": "Apps connected to a web API or cloud service"
+        }
+      ],
+      "rust": [
+        {
+          "name": "OS keychain (keyring crate)",
+          "rank": 1,
+          "context": "Store credentials in macOS Keychain, Windows Credential Manager, or Linux Secret Service.",
+          "when": "Single-user desktop apps"
+        }
+      ],
+      "csharp": [
+        {
+          "name": "Windows Credential Manager (.NET)",
+          "rank": 1,
+          "context": "Native Windows credential storage. Use CredentialManager NuGet package.",
+          "when": "Windows-only apps"
+        },
+        {
+          "name": "MSAL (Microsoft Authentication Library)",
+          "rank": 2,
+          "context": "Azure AD / Microsoft Entra ID integration. Best for enterprise SSO.",
+          "when": "Enterprise apps with Azure AD"
+        }
+      ],
+      "default": [
+        {
+          "name": "OS keychain integration",
+          "rank": 1,
+          "context": "Use the operating system's native credential storage. Secure, no server required.",
+          "when": "Most desktop apps"
+        }
+      ]
+    },
+    "ui_framework": {
+      "typescript": [
+        {
+          "name": "Electron + React",
+          "rank": 1,
+          "context": "Most mature desktop framework for web technologies. Large ecosystem. Higher memory usage. Best tooling support.",
+          "when": "Full-featured desktop apps, cross-platform"
+        },
+        {
+          "name": "Tauri + React",
+          "rank": 2,
+          "context": "Rust-based alternative to Electron. Much smaller binaries, lower memory. Newer, smaller ecosystem.",
+          "when": "Performance-sensitive apps or if bundle size matters"
+        }
+      ],
+      "rust": [
+        {
+          "name": "Tauri",
+          "rank": 1,
+          "context": "Native Rust backend with web frontend. Small binaries, low memory, system-native feel.",
+          "when": "Most Rust desktop apps"
+        }
+      ],
+      "csharp": [
+        {
+          "name": "WPF (.NET)",
+          "rank": 1,
+          "context": "Windows-only but mature and full-featured. Best for Windows-targeted business tools.",
+          "when": "Windows-only apps"
+        },
+        {
+          "name": "MAUI (.NET)",
+          "rank": 2,
+          "context": "Cross-platform .NET UI. Works on Windows, macOS, iOS, Android. Newer, still maturing.",
+          "when": "Cross-platform .NET apps"
+        }
+      ],
+      "default": [
+        {
+          "name": "Electron (cross-platform) or Tauri (lightweight)",
+          "rank": 1,
+          "context": "Electron for maximum compatibility and ecosystem. Tauri for smaller, faster apps.",
+          "when": "Most desktop apps"
+        }
+      ]
+    },
+    "packaging": {
+      "default": [
+        {
+          "name": "Platform-native installers (DMG, MSI, AppImage)",
+          "rank": 1,
+          "context": "DMG for macOS, MSI/NSIS for Windows, AppImage/deb for Linux. Users expect native formats.",
+          "when": "Most desktop apps"
+        },
+        {
+          "name": "Portable executables",
+          "rank": 2,
+          "context": "No installation required. Good for internal tools or USB distribution.",
+          "when": "Internal tools, no admin rights environments"
+        }
+      ]
+    },
+    "auto_update": {
+      "default": [
+        {
+          "name": "Built-in framework updater (electron-updater / tauri-updater)",
+          "rank": 1,
+          "context": "Downloads and installs updates automatically. Built into each framework.",
+          "when": "Most desktop apps distributed outside app stores"
+        },
+        {
+          "name": "Manual update notification",
+          "rank": 2,
+          "context": "App checks for new version and shows a link. Simpler but relies on user action.",
+          "when": "Low-frequency update needs"
+        }
+      ]
+    },
+    "database": {
+      "default": [
+        {
+          "name": "SQLite (local)",
+          "rank": 1,
+          "context": "Embedded database, no server needed. Perfect for single-user desktop apps. Fast, reliable, zero-config.",
+          "when": "Most desktop apps with local data"
+        },
+        {
+          "name": "Supabase (cloud PostgreSQL)",
+          "rank": 2,
+          "context": "For desktop apps that sync data to the cloud or across devices.",
+          "when": "Multi-device sync or cloud backup needed"
+        }
+      ]
+    }
+  }
+}

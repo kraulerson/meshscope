@@ -1,0 +1,13 @@
+{
+  "project": "meshscope",
+  "framework_version": "1.0",
+  "current_phase": 0,
+  "track": "light",
+  "deployment": "organizational",
+  "poc_mode": "private_poc",
+  "gates": {
+    "phase_0_to_1": null,
+    "phase_1_to_2": null,
+    "phase_3_to_4": null
+  }
+}

@@ -1,0 +1,141 @@
+{
+  "platform": "mobile",
+  "suggestions": {
+    "authentication": {
+      "dart": [
+        {
+          "name": "Supabase Auth (via supabase_flutter)",
+          "rank": 1,
+          "context": "Managed auth with email, magic links, social logins. Native Flutter package.",
+          "when": "Flutter apps using Supabase"
+        },
+        {
+          "name": "Firebase Auth",
+          "rank": 2,
+          "context": "Google's managed auth. Excellent Flutter integration. Free for most use cases.",
+          "when": "Flutter apps using Firebase ecosystem"
+        }
+      ],
+      "typescript": [
+        {
+          "name": "Supabase Auth (via @supabase/supabase-js)",
+          "rank": 1,
+          "context": "Works with React Native via the JS client. Same auth as web.",
+          "when": "React Native apps using Supabase"
+        },
+        {
+          "name": "Firebase Auth (via @react-native-firebase)",
+          "rank": 2,
+          "context": "Native Firebase integration for React Native. Well-supported.",
+          "when": "React Native apps using Firebase"
+        }
+      ],
+      "kotlin": [
+        {
+          "name": "Firebase Auth",
+          "rank": 1,
+          "context": "Native Android SDK. Best-in-class for Kotlin Android apps.",
+          "when": "Android-only apps"
+        },
+        {
+          "name": "Supabase Auth (via supabase-kt)",
+          "rank": 2,
+          "context": "Kotlin Multiplatform client for Supabase. Good if already using Supabase.",
+          "when": "Apps with Supabase backend"
+        }
+      ],
+      "default": [
+        {
+          "name": "Firebase Auth or Supabase Auth",
+          "rank": 1,
+          "context": "Both provide managed auth with mobile SDKs. Firebase has deeper mobile integration. Supabase is simpler.",
+          "when": "Most mobile apps"
+        }
+      ]
+    },
+    "framework": {
+      "dart": [
+        {
+          "name": "Flutter",
+          "rank": 1,
+          "context": "Cross-platform from a single codebase. Strong typing, hot reload, large widget library.",
+          "when": "Cross-platform mobile apps"
+        }
+      ],
+      "typescript": [
+        {
+          "name": "React Native (Expo)",
+          "rank": 1,
+          "context": "Managed workflow with Expo. Fastest path to app stores. Limited native module access.",
+          "when": "Most React Native apps, especially first-timers"
+        },
+        {
+          "name": "React Native (bare)",
+          "rank": 2,
+          "context": "Full native module access. More setup, more control. Choose this if Expo's limitations block you.",
+          "when": "Apps needing deep native integration"
+        }
+      ],
+      "kotlin": [
+        {
+          "name": "Kotlin + Jetpack Compose",
+          "rank": 1,
+          "context": "Android-native with modern declarative UI. Best performance on Android.",
+          "when": "Android-only apps"
+        }
+      ],
+      "default": [
+        {
+          "name": "Flutter or React Native (Expo)",
+          "rank": 1,
+          "context": "Both are strong cross-platform options. Flutter for Dart, React Native for TypeScript/React developers.",
+          "when": "Cross-platform mobile apps"
+        }
+      ]
+    },
+    "offline_strategy": {
+      "default": [
+        {
+          "name": "Offline tolerant",
+          "rank": 1,
+          "context": "App works online but handles connectivity loss gracefully. Shows cached data, queues actions.",
+          "when": "Most apps — good default"
+        },
+        {
+          "name": "Offline capable",
+          "rank": 2,
+          "context": "Core features work without connectivity. Syncs when online. Requires local database.",
+          "when": "Field work, unreliable connectivity"
+        },
+        {
+          "name": "Offline first",
+          "rank": 3,
+          "context": "Everything works offline. Network is optional. Significant complexity for sync and conflict resolution.",
+          "when": "Remote locations, medical/emergency apps"
+        }
+      ]
+    },
+    "database": {
+      "default": [
+        {
+          "name": "Supabase (PostgreSQL) + local SQLite cache",
+          "rank": 1,
+          "context": "Cloud database with local caching for offline support. Best of both worlds.",
+          "when": "Most mobile apps with cloud sync"
+        },
+        {
+          "name": "Firebase Firestore",
+          "rank": 2,
+          "context": "Real-time NoSQL with built-in offline persistence. Excellent mobile SDK.",
+          "when": "Real-time data, Firebase ecosystem"
+        },
+        {
+          "name": "SQLite only (local)",
+          "rank": 3,
+          "context": "No cloud sync. All data stays on device. Simplest architecture.",
+          "when": "Personal tools, no sync needed"
+        }
+      ]
+    }
+  }
+}

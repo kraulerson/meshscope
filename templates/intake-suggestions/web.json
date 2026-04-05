@@ -1,0 +1,179 @@
+{
+  "platform": "web",
+  "suggestions": {
+    "authentication": {
+      "typescript": [
+        {
+          "name": "Supabase Auth",
+          "rank": 1,
+          "context": "You'll likely use Supabase for data — auth comes included. Supports email/password, magic links, and social logins. No additional cost.",
+          "when": "Most web projects with Supabase"
+        },
+        {
+          "name": "NextAuth.js (Auth.js)",
+          "rank": 2,
+          "context": "More flexible if you need custom providers or complex session handling. Works with any database. More setup, well-documented.",
+          "when": "Custom auth requirements or multiple OAuth providers"
+        },
+        {
+          "name": "Clerk",
+          "rank": 3,
+          "context": "Fastest to implement. Managed service with pre-built UI components. Free tier covers 10K MAU, then $25/mo.",
+          "when": "Speed to market is top priority"
+        }
+      ],
+      "python": [
+        {
+          "name": "Supabase Auth (via supabase-py)",
+          "rank": 1,
+          "context": "Same Supabase Auth, accessed from Python. Works with FastAPI or Django.",
+          "when": "Using Supabase for data"
+        },
+        {
+          "name": "FastAPI Users",
+          "rank": 2,
+          "context": "Native FastAPI auth with OAuth2, JWT, database backends. More control, more setup.",
+          "when": "FastAPI projects needing custom auth flows"
+        },
+        {
+          "name": "Django Auth + django-allauth",
+          "rank": 3,
+          "context": "Built into Django. Battle-tested, session-based. Add django-allauth for social logins.",
+          "when": "Django projects"
+        }
+      ],
+      "default": [
+        {
+          "name": "Supabase Auth",
+          "rank": 1,
+          "context": "Managed auth with email/password, magic links, social logins. Works with any language via REST API.",
+          "when": "Most web projects"
+        }
+      ]
+    },
+    "hosting": {
+      "typescript": [
+        {
+          "name": "Vercel",
+          "rank": 1,
+          "context": "Native Next.js support, generous free tier, zero-config deployments. Best default for solo Next.js projects.",
+          "when": "Next.js projects"
+        },
+        {
+          "name": "Railway",
+          "rank": 2,
+          "context": "More flexibility for backend-heavy apps. Simple pricing, good DX. Better for persistent processes or WebSockets.",
+          "when": "Custom backends, WebSocket servers, or cron jobs"
+        },
+        {
+          "name": "Cloudflare Pages + Workers",
+          "rank": 3,
+          "context": "Edge-first deployment. Excellent performance globally. Steeper learning curve for Workers.",
+          "when": "Global audience, edge computing needs"
+        }
+      ],
+      "python": [
+        {
+          "name": "Railway",
+          "rank": 1,
+          "context": "Simple Python deployment, good free tier, built-in PostgreSQL. Best for solo Python projects.",
+          "when": "FastAPI, Flask, or Django projects"
+        },
+        {
+          "name": "Fly.io",
+          "rank": 2,
+          "context": "Container-based deployment, global edge network. More control than Railway.",
+          "when": "Need multi-region or specific infrastructure control"
+        },
+        {
+          "name": "Render",
+          "rank": 3,
+          "context": "Heroku alternative. Simple deployment, managed PostgreSQL. Free tier available.",
+          "when": "Simple deployment needs"
+        }
+      ],
+      "default": [
+        {
+          "name": "Vercel or Railway",
+          "rank": 1,
+          "context": "Both offer generous free tiers and simple deployment. Vercel for frontend-heavy, Railway for backend-heavy.",
+          "when": "Most web projects"
+        }
+      ]
+    },
+    "database": {
+      "typescript": [
+        {
+          "name": "Supabase (PostgreSQL)",
+          "rank": 1,
+          "context": "Managed Postgres with built-in auth, row-level security, real-time subscriptions, and auto-generated API. Free tier covers most MVPs.",
+          "when": "Most web projects"
+        },
+        {
+          "name": "PlanetScale (MySQL)",
+          "rank": 2,
+          "context": "Serverless MySQL with branching workflows. Good if you prefer MySQL or need database branching for schema changes.",
+          "when": "MySQL preference or complex migration workflows"
+        },
+        {
+          "name": "Turso (SQLite)",
+          "rank": 3,
+          "context": "Edge-friendly, embedded database. Very fast reads. Good for read-heavy apps or per-user databases.",
+          "when": "Read-heavy apps, per-user data isolation"
+        }
+      ],
+      "python": [
+        {
+          "name": "Supabase (PostgreSQL)",
+          "rank": 1,
+          "context": "Managed Postgres with auth and API. Works with SQLAlchemy, Prisma, or raw SQL.",
+          "when": "Most web projects"
+        },
+        {
+          "name": "PostgreSQL (self-managed on Railway/Render)",
+          "rank": 2,
+          "context": "Standard PostgreSQL with more control. Railway and Render provide managed instances.",
+          "when": "Need specific PostgreSQL extensions or configuration"
+        }
+      ],
+      "default": [
+        {
+          "name": "Supabase (PostgreSQL)",
+          "rank": 1,
+          "context": "Managed Postgres with auth, row-level security, and auto-generated API.",
+          "when": "Most web projects"
+        }
+      ]
+    },
+    "frontend_framework": {
+      "typescript": [
+        {
+          "name": "Next.js 15 (App Router)",
+          "rank": 1,
+          "context": "Full-stack React framework with server components, API routes, and Vercel integration. The ecosystem default for TypeScript web apps.",
+          "when": "Most web projects"
+        },
+        {
+          "name": "Remix",
+          "rank": 2,
+          "context": "Simpler mental model than Next.js, better form handling, runs anywhere. Good if Vercel lock-in concerns you.",
+          "when": "Form-heavy apps or multi-host deployment"
+        },
+        {
+          "name": "SvelteKit",
+          "rank": 3,
+          "context": "Lighter than React, excellent performance, less ecosystem. TypeScript support is good but fewer examples.",
+          "when": "Performance-critical UI, smaller bundle size"
+        }
+      ],
+      "default": [
+        {
+          "name": "Next.js 15",
+          "rank": 1,
+          "context": "Full-stack React framework. The most commonly recommended stack for TypeScript web apps.",
+          "when": "Most web projects"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,111 @@
+name: Release — meshscope
+# ─────────────────────────────────────────────────────────────────
+# BEFORE FIRST RELEASE: Search for "TODO" in this file and configure:
+#   - Code signing certificates (Windows, macOS, Linux)
+#   - Build artifact paths for your framework
+#   - SBOM generation commands
+# The Phase 3→4 gate will warn if TODOs remain unconfigured.
+# Light-track projects: this pipeline is optional for internal-only use.
+# ─────────────────────────────────────────────────────────────────
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Build
+        run: python -m build
+        # TODO: Replace with your framework's build command:
+        #   Tauri:    cargo tauri build
+        #   Electron: npx electron-builder --publish never
+        #   Flutter:  flutter build [windows|macos|linux] --release
+
+      - name: Code signing
+        run: echo "TODO — configure code signing"
+        # TODO: Configure code signing. Store certificates as GitHub Secrets.
+        #
+        #   Windows: EV Code Signing Certificate
+        #     Secrets: WINDOWS_CERTIFICATE_BASE64, WINDOWS_CERTIFICATE_PASSWORD
+        #     Decode:  echo "${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}" | base64 -d > cert.pfx
+        #     Sign:    signtool sign /f cert.pfx /p "${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}" /tr http://timestamp.digicert.com /td sha256 <binary>
+        #
+        #   macOS: Apple Developer Certificate
+        #     Secrets: APPLE_CERTIFICATE_BASE64, APPLE_CERTIFICATE_PASSWORD, APPLE_ID, APPLE_TEAM_ID
+        #     Import certificate into Keychain, then codesign and notarize.
+        #
+        #   Linux: GPG signing key
+        #     Secret: GPG_PRIVATE_KEY
+        #     Import key and sign artifacts with gpg --detach-sign.
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.os }}
+          path: dist/*
+          # TODO: Replace dist/* with the actual artifact glob for your framework:
+          #   Tauri:    src-tauri/target/release/bundle/**/*
+          #   Electron: dist/*.{exe,dmg,AppImage,deb}
+          #   Flutter:  build/[platform]/release/*
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/download-artifact@v4
+
+      - name: Generate checksums
+        run: sha256sum release-*/* > checksums.sha256
+
+      - name: Generate SBOM
+        run: |
+          # Generate SBOM — configure the command for your language:
+          #   Node.js:  npx @cyclonedx/cyclonedx-npm --output-file sbom.json
+          #   Python:   pip install cyclonedx-bom && cyclonedx-py requirements -i requirements.txt -o sbom.json
+          #   Rust:     cargo install cargo-cyclonedx && cargo cyclonedx -f json > sbom.json
+          #   Go:       go install github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@latest && cyclonedx-gomod mod -json -output sbom.json
+          #   .NET:     dotnet tool install --global CycloneDX && dotnet CycloneDX -o sbom.json
+          echo "ERROR: No SBOM tool configured. Replace this step with a language-specific CycloneDX command."
+          echo "See comments above for examples."
+          exit 1
+
+      # DAST — Electron/Tauri apps with web UIs can be scanned locally.
+      # If your desktop app serves a local web interface, uncomment and configure:
+      #
+      # - name: DAST — OWASP ZAP baseline scan
+      #   run: |
+      #     docker run --rm zaproxy/zap-stable zap-baseline.py \
+      #       -t http://localhost:${{ vars.APP_PORT || '3000' }} \
+      #       -J zap-report.json
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release-*/*
+            checksums.sha256
+            sbom.json
+          generate_release_notes: true

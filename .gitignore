@@ -1,0 +1,76 @@
+# Dependencies
+node_modules/
+venv/
+__pycache__/
+*.pyc
+.pip-cache/
+
+# Environment
+.env
+.env.local
+.env.production
+.env.*.local
+
+# Build output
+dist/
+build/
+out/
+.next/
+.nuxt/
+.svelte-kit/
+target/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test
+coverage/
+playwright-report/
+test-results/
+
+# Debug
+*.log
+npm-debug.log*
+
+# Secrets (belt and suspenders with gitleaks)
+*.pem
+*.key
+*.p12
+*.jks
+*.pfx
+*.keystore
+credentials.json
+service-account.json
+terraform.tfvars
+terraform.tfvars.json
+.npmrc
+
+# Desktop build artifacts
+src-tauri/target/
+release/
+*.exe
+*.dmg
+*.AppImage
+*.deb
+*.msi
+
+# Python
+venv/
+*.pyc
+__pycache__/
+.mypy_cache/
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# Solo Orchestrator logs
+.solo-orchestrator/
