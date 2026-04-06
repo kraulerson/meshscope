@@ -1,4 +1,5 @@
-black==25.1.0
+black==26.3.1
+pytokens==0.4.1
 cfgv==3.5.0
 click==8.3.2
 contourpy==1.3.3
@@ -10,8 +11,6 @@ identify==2.6.18
 iniconfig==2.3.0
 kiwisolver==1.5.0
 matplotlib==3.10.8
-# Editable Git install with no remote (meshscope==0.1.0)
--e /Users/karl/Documents/Claude Projects/meshscope
 mypy==1.16.0
 mypy_extensions==1.1.0
 nodeenv==1.10.0

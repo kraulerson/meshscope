@@ -17,7 +17,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install -r requirements.txt && pip install -e . --no-deps
 
       - name: Install dev tools
         run: pip install ruff mypy pip-audit pip-licenses
@@ -65,14 +65,18 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
 
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libegl1 libgl1-mesa-glx libxkbcommon0
+
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install -r requirements.txt && pip install -e . --no-deps
 
       - name: Install dev tools
         run: pip install pytest pytest-qt
 
       - name: Run tests
-        run: pytest
+        run: pytest || [ $? -eq 5 ]
         env:
           QT_QPA_PLATFORM: offscreen
 

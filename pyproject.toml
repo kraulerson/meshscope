@@ -21,7 +21,7 @@ dependencies = [
 dev = [
     "pytest==8.4.1",
     "pytest-qt==4.4.0",
-    "black==25.1.0",
+    "black==26.3.1",
     "ruff==0.11.12",
     "mypy==1.16.0",
     "pre-commit==4.2.0",

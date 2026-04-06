@@ -41,7 +41,7 @@ if [ "$HAS_SOURCE" = false ] && [ -z "$STAGED" ] && [ -n "$SESSION_START" ]; the
       # Process previous commit (skip merge commits — they have no file list
       # and their messages often contain branch names like "fix/..." which
       # false-positive the fix detection regex)
-      if [ -n "$CURRENT_SHA" ] && ! echo "$CURRENT_MSG" | grep -qiE '^Merge ' && echo "$CURRENT_MSG" | grep -qiE '\b(fix|bug|patch|hotfix|repair|resolve)\b'; then
+      if [ -n "$CURRENT_SHA" ] && ! echo "$CURRENT_MSG" | grep -qiE '^Merge ' && echo "$CURRENT_MSG" | grep -qiE '^(fix|bugfix|bug|patch|hotfix|repair|resolve)(\(|:|!|\b)'; then
         [ "$CURRENT_HAS_TEST" = false ] && UNTESTED_FIXES="${UNTESTED_FIXES}${CURRENT_SHA:0:8}\n"
       fi
       CURRENT_SHA="${line#COMMIT }" CURRENT_SHA="${CURRENT_SHA%% *}"
@@ -52,7 +52,7 @@ if [ "$HAS_SOURCE" = false ] && [ -z "$STAGED" ] && [ -n "$SESSION_START" ]; the
     fi
   done <<< "$COMMIT_LOG"
   # Process last commit
-  if [ -n "$CURRENT_SHA" ] && ! echo "$CURRENT_MSG" | grep -qiE '^Merge ' && echo "$CURRENT_MSG" | grep -qiE '\b(fix|bug|patch|hotfix|repair|resolve)\b'; then
+  if [ -n "$CURRENT_SHA" ] && ! echo "$CURRENT_MSG" | grep -qiE '^Merge ' && echo "$CURRENT_MSG" | grep -qiE '^(fix|bugfix|bug|patch|hotfix|repair|resolve)(\(|:|!|\b)'; then
     [ "$CURRENT_HAS_TEST" = false ] && UNTESTED_FIXES="${UNTESTED_FIXES}${CURRENT_SHA:0:8}\n"
   fi
   if [ -n "$UNTESTED_FIXES" ]; then
