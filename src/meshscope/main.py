@@ -12,7 +12,8 @@ def main() -> None:
     app.setApplicationName("meshscope")
     app.setApplicationVersion("0.1.0")
 
-    window = MainWindow()
+    file_path = sys.argv[1] if len(sys.argv) > 1 else None
+    window = MainWindow(file_path=file_path)
     window.show()
 
     sys.exit(app.exec())

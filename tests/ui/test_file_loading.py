@@ -1,0 +1,91 @@
+"""Integration tests for file loading through the UI pipeline."""
+
+from pathlib import Path
+
+import pytest
+from PySide6.QtWidgets import QApplication
+
+from meshscope.ui.main_window import MainWindow
+
+FIXTURES = Path(__file__).parent.parent / "fixtures"
+VALID = FIXTURES / "valid"
+INVALID = FIXTURES / "invalid"
+
+
+@pytest.fixture()
+def window(qapp: QApplication) -> MainWindow:
+    w = MainWindow()
+    yield w
+    w.close()
+
+
+class TestFileLoadingSuccess:
+    def test_load_stl_displays_mesh(self, window: MainWindow) -> None:
+        window._load_file(VALID / "cube.stl")
+        assert window.viewport.state == "success"
+        assert window.viewport.scene_manager.has_mesh is True
+        assert window.document is not None
+        assert window.document.mesh.metadata.face_count == 12
+
+    def test_load_obj_displays_mesh(self, window: MainWindow) -> None:
+        window._load_file(VALID / "cube.obj")
+        assert window.viewport.state == "success"
+        assert window.viewport.scene_manager.has_mesh is True
+
+    def test_load_ply_displays_mesh(self, window: MainWindow) -> None:
+        window._load_file(VALID / "cube.ply")
+        assert window.viewport.state == "success"
+
+    def test_load_3mf_displays_mesh(self, window: MainWindow) -> None:
+        window._load_file(VALID / "cube.3mf")
+        assert window.viewport.state == "success"
+
+    def test_status_bar_shows_filename_and_count(self, window: MainWindow) -> None:
+        window._load_file(VALID / "cube.stl")
+        msg = window.statusBar().currentMessage()
+        assert "cube.stl" in msg
+        assert "12" in msg
+
+    def test_toolbar_enabled_after_load(self, window: MainWindow) -> None:
+        window._load_file(VALID / "cube.stl")
+        assert window.wireframe_action.isEnabled()
+        assert window.shading_action.isEnabled()
+        assert window.fit_action.isEnabled()
+
+    def test_reload_replaces_mesh(self, window: MainWindow) -> None:
+        window._load_file(VALID / "cube.stl")
+        window._load_file(VALID / "cube.obj")
+        assert window.viewport.state == "success"
+        assert "cube.obj" in window.statusBar().currentMessage()
+
+
+class TestFileLoadingErrors:
+    def test_corrupt_file_shows_error(self, window: MainWindow) -> None:
+        window._load_file(INVALID / "corrupt.stl")
+        assert window.viewport.state == "error"
+        assert not window.wireframe_action.isEnabled()
+
+    def test_missing_file_shows_error(self, window: MainWindow) -> None:
+        window._load_file(Path("/nonexistent/file.stl"))
+        assert window.viewport.state == "error"
+        assert "not found" in window.statusBar().currentMessage().lower()
+
+    def test_error_after_success_keeps_error_state(self, window: MainWindow) -> None:
+        window._load_file(VALID / "cube.stl")
+        assert window.viewport.state == "success"
+        window._load_file(INVALID / "corrupt.stl")
+        assert window.viewport.state == "error"
+        assert not window.wireframe_action.isEnabled()
+
+
+class TestCLIArgument:
+    def test_file_path_loaded_on_construction(self, qapp: QApplication) -> None:
+        window = MainWindow(file_path=str(VALID / "cube.stl"))
+        assert window.viewport.state == "success"
+        assert window.document is not None
+        window.close()
+
+    def test_invalid_path_shows_error(self, qapp: QApplication) -> None:
+        window = MainWindow(file_path="/nonexistent/file.stl")
+        assert window.viewport.state == "error"
+        window.close()
