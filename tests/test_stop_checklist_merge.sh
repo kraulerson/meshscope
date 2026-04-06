@@ -11,8 +11,8 @@ FAIL=0
 check() {
   local description="$1" msg="$2" expected="$3" actual
 
-  # Replicate the hook's detection logic
-  if ! echo "$msg" | grep -qiE '^Merge ' && echo "$msg" | grep -qiE '\b(fix|bug|patch|hotfix|repair|resolve)\b'; then
+  # Replicate the hook's detection logic (must match conventional commit prefix)
+  if ! echo "$msg" | grep -qiE '^Merge ' && echo "$msg" | grep -qiE '^(fix|bugfix|bug|patch|hotfix|repair|resolve)(\(|:|!|\b)'; then
     actual="flagged"
   else
     actual="skipped"
@@ -45,6 +45,12 @@ echo "Should be SKIPPED (non-fix commits):"
 check "feat: add new feature" "feat: add new feature" "skipped"
 check "docs: update readme" "docs: update readme" "skipped"
 check "chore: update deps" "chore: update deps" "skipped"
+
+echo ""
+echo "Should be SKIPPED (word 'fix' in body, not prefix):"
+check "chore: upgrade black to fix CVE" "chore(ci): upgrade black to fix CVE-2026-32274" "skipped"
+check "docs: fix typo note" "docs: document fix for issue #42" "skipped"
+check "feat: add hotfix deploy mode" "feat: add hotfix deploy mode" "skipped"
 
 echo ""
 echo "=== Results: $PASS passed, $FAIL failed ==="
