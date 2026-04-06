@@ -31,6 +31,7 @@ At the start of every new session, before any other work:
 - Follow the Builder's Guide phases in sequence (Phase 0 → 1 → 2 → 3 → 4).
 - Reference the Platform Module for platform-specific architecture, tooling, testing, and distribution.
 - Every phase produces artifacts that gate entry into the next phase. Do not skip ahead.
+- **When executing numbered steps within a phase, complete them in order.** Do not infer completion from local state — verify each step explicitly. "The local repo exists" does not mean "the remote repo was created and branch protection was configured."
 
 ### Governance Tracking
 - The Approval Log (`APPROVAL_LOG.md`) records all phase gate approvals.

@@ -197,7 +197,13 @@ Unsigned applications trigger security warnings on Windows (SmartScreen) and mac
 
 **CI integration:** Code signing should happen in CI, not on the developer's machine. Store signing certificates as CI secrets.
 
-### 3.4 Binary Size Optimization
+### 3.4 Packaging Pitfalls
+
+**Nuitka + large native packages (VTK, Open3D, scipy):** `--include-package` and `--include-package-data` can cause infinite dependency analysis loops for packages with hundreds of compiled C++ modules. Use targeted `--include-module` flags for specific modules your code actually imports. Validate packaging as the **first Phase 2 task** — before writing any feature code.
+
+**Python version selection:** Do not use the latest Python release. Use the latest **stable** release that is fully supported by your entire dependency chain. Check compatibility of your UI framework (PySide6/PyQt), native packages (VTK, Open3D), and packaging tool (Nuitka, PyInstaller) **before** creating the venv. Bleeding-edge Python versions frequently lack wheel support for compiled packages and may have incompatible C API changes that break packaging tools. As a rule of thumb, use the Python version one minor release behind the latest (e.g., if 3.14 is latest, use 3.13).
+
+### 3.5 Binary Size Optimization
 
 | Framework | Typical Size | Optimization |
 |---|---|---|

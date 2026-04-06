@@ -793,6 +793,8 @@ Direct the agent to generate the CI configuration:
 > **⟁ PLATFORM MODULE:** Reference your Platform Module for platform-specific CI steps: cross-platform build matrix, code signing, packaging verification, platform-specific test runners.
 
 **7. Verify before building the first feature:**
+- [ ] Remote repository exists and is accessible (push a test commit if needed)
+- [ ] Branch protection is configured on main (PRs required, status checks required, force push disabled)
 - [ ] Linter runs clean
 - [ ] Test runner executes (0 tests, 0 failures)
 - [ ] Initial data model applies successfully
