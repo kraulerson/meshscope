@@ -74,3 +74,4 @@ build/
 
 # Solo Orchestrator logs
 .solo-orchestrator/
+.superpowers/
