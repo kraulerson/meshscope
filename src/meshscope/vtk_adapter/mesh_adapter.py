@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from vtkmodules.vtkCommonCore import vtkFloatArray, vtkPoints
-from vtkmodules.vtkCommonDataModel import vtkCellArray, vtkPolyData, vtkTriangle
+import numpy as np
+from vtkmodules.util.numpy_support import numpy_to_vtk, numpy_to_vtkIdTypeArray
+from vtkmodules.vtkCommonCore import vtkPoints
+from vtkmodules.vtkCommonDataModel import vtkCellArray, vtkPolyData
 
 if TYPE_CHECKING:
     from meshscope.core.mesh_data import MeshData
@@ -17,28 +19,26 @@ def mesh_data_to_polydata(mesh: MeshData) -> vtkPolyData:
     Creates a vtkPolyData with points, triangle cells, and per-cell normals
     from the MeshData's numpy arrays.
     """
-    # Vertices → vtkPoints
+    # Vertices → vtkPoints (bulk numpy bridge)
     points = vtkPoints()
-    points.SetNumberOfPoints(len(mesh.vertices))
-    for i, (x, y, z) in enumerate(mesh.vertices):
-        points.SetPoint(i, float(x), float(y), float(z))
+    vtk_array = numpy_to_vtk(mesh.vertices, deep=True)
+    points.SetData(vtk_array)
 
-    # Faces → vtkCellArray of triangles
+    # Faces → vtkCellArray (bulk numpy bridge, new-style VTK 9 API)
+    n_faces = len(mesh.faces)
+    # Offsets: cumulative end-of-cell positions [0, 3, 6, 9, ...]
+    offsets = np.arange(0, (n_faces + 1) * 3, 3, dtype=np.int64)
+    # Connectivity: flat point-ID array [i0, i1, i2, i0, i1, i2, ...]
+    conn = mesh.faces.astype(np.int64).ravel()
     cells = vtkCellArray()
-    for face in mesh.faces:
-        triangle = vtkTriangle()
-        triangle.GetPointIds().SetId(0, int(face[0]))
-        triangle.GetPointIds().SetId(1, int(face[1]))
-        triangle.GetPointIds().SetId(2, int(face[2]))
-        cells.InsertNextCell(triangle)
+    cells.SetData(
+        numpy_to_vtkIdTypeArray(offsets, deep=True),
+        numpy_to_vtkIdTypeArray(conn, deep=True),
+    )
 
-    # Normals → vtkFloatArray (per-cell)
-    normals_array = vtkFloatArray()
-    normals_array.SetNumberOfComponents(3)
+    # Normals → VTK array (bulk numpy bridge, per-cell)
+    normals_array = numpy_to_vtk(mesh.normals, deep=True)
     normals_array.SetName("Normals")
-    normals_array.SetNumberOfTuples(len(mesh.normals))
-    for i, (nx, ny, nz) in enumerate(mesh.normals):
-        normals_array.SetTuple3(i, float(nx), float(ny), float(nz))
 
     # Assemble polydata
     polydata = vtkPolyData()
