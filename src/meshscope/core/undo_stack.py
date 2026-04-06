@@ -12,6 +12,9 @@ if TYPE_CHECKING:
 class UndoStack:
     """Ring buffer of MeshData snapshots supporting undo/redo.
 
+    Usage: push the current mesh state before applying a transform;
+    ``undo()`` returns it for restoration.
+
     When max_entries is reached, the oldest entry is evicted.
     Pushing a new entry after an undo clears the redo history.
     """
@@ -19,7 +22,6 @@ class UndoStack:
     def __init__(self, max_entries: int = 10) -> None:
         self._entries: deque[MeshData] = deque(maxlen=max_entries)
         self._redo_stack: list[MeshData] = []
-        self._max_entries = max_entries
 
     def push(self, mesh: MeshData) -> None:
         """Save a mesh state snapshot. Clears redo history."""
@@ -50,7 +52,7 @@ class UndoStack:
 
     @property
     def memory_bytes(self) -> int:
-        """Estimate total memory used by stored snapshots."""
+        """Estimate array memory used by stored snapshots (undo + redo)."""
         total = 0
         for mesh in self._entries:
             total += mesh.vertices.nbytes + mesh.faces.nbytes + mesh.normals.nbytes
