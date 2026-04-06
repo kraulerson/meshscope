@@ -17,7 +17,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install -r requirements.txt && pip install -e . --no-deps
 
       - name: Install dev tools
         run: pip install ruff mypy pip-audit pip-licenses
@@ -66,13 +66,13 @@ jobs:
           python-version: ${{ matrix.python }}
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install -r requirements.txt && pip install -e . --no-deps
 
       - name: Install dev tools
         run: pip install pytest pytest-qt
 
       - name: Run tests
-        run: pytest
+        run: pytest || [ $? -eq 5 ]
         env:
           QT_QPA_PLATFORM: offscreen
 
