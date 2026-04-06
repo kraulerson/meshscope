@@ -1,5 +1,7 @@
 """Tests for ViewportWidget."""
 
+import inspect
+
 import pytest
 from PySide6.QtWidgets import QApplication
 
@@ -47,3 +49,20 @@ class TestViewportWidgetStates:
     def test_loading_state(self, widget: ViewportWidget) -> None:
         widget.set_state("loading")
         assert widget.state == "loading"
+
+
+class TestViewportWidgetApiContract:
+    """Regression: vtk_render not render, resizeEvent takes QResizeEvent."""
+
+    def test_vtk_render_exists_and_render_not_overridden(
+        self, widget: ViewportWidget
+    ) -> None:
+        assert hasattr(widget, "vtk_render"), "Must use vtk_render(), not render()"
+        # render must NOT be defined on ViewportWidget (would shadow QWidget.render)
+        assert "render" not in ViewportWidget.__dict__, (
+            "ViewportWidget must not override render() — use vtk_render() instead"
+        )
+
+    def test_resize_event_accepts_qresizeevent(self, widget: ViewportWidget) -> None:
+        hints = inspect.get_annotations(ViewportWidget.resizeEvent)
+        assert hints.get("event") == "QResizeEvent"

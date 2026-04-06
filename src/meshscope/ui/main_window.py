@@ -167,7 +167,7 @@ class MainWindow(QMainWindow):
 
         polydata = mesh_data_to_polydata(doc.mesh)
         self._viewport.scene_manager.display_mesh(polydata)
-        self._viewport.render()
+        self._viewport.vtk_render()
 
         self._set_state_success(path.name, doc.mesh.metadata.face_count)
 
@@ -204,15 +204,15 @@ class MainWindow(QMainWindow):
 
     def _on_wireframe_toggled(self, checked: bool) -> None:
         self._viewport.scene_manager.set_wireframe_overlay(checked)
-        self._viewport.render()
+        self._viewport.vtk_render()
 
     def _on_shading_toggled(self, checked: bool) -> None:
         self._viewport.scene_manager.set_smooth_shading(checked)
-        self._viewport.render()
+        self._viewport.vtk_render()
 
     def _on_fit(self) -> None:
         self._viewport.scene_manager.fit_to_view()
-        self._viewport.render()
+        self._viewport.vtk_render()
 
     # --- Drag and drop ---
 

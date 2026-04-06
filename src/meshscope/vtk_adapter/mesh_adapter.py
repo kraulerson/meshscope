@@ -21,7 +21,7 @@ def mesh_data_to_polydata(mesh: MeshData) -> vtkPolyData:
     """
     # Vertices → vtkPoints (bulk numpy bridge)
     points = vtkPoints()
-    vtk_array = numpy_to_vtk(mesh.vertices, deep=True)
+    vtk_array = numpy_to_vtk(mesh.vertices, deep=True)  # type: ignore[no-untyped-call]
     points.SetData(vtk_array)
 
     # Faces → vtkCellArray (bulk numpy bridge, new-style VTK 9 API)
@@ -32,12 +32,12 @@ def mesh_data_to_polydata(mesh: MeshData) -> vtkPolyData:
     conn = mesh.faces.astype(np.int64).ravel()
     cells = vtkCellArray()
     cells.SetData(
-        numpy_to_vtkIdTypeArray(offsets, deep=True),
-        numpy_to_vtkIdTypeArray(conn, deep=True),
+        numpy_to_vtkIdTypeArray(offsets, deep=True),  # type: ignore[no-untyped-call]
+        numpy_to_vtkIdTypeArray(conn, deep=True),  # type: ignore[no-untyped-call]
     )
 
     # Normals → VTK array (bulk numpy bridge, per-cell)
-    normals_array = numpy_to_vtk(mesh.normals, deep=True)
+    normals_array = numpy_to_vtk(mesh.normals, deep=True)  # type: ignore[no-untyped-call]
     normals_array.SetName("Normals")
 
     # Assemble polydata
