@@ -1,0 +1,87 @@
+[build-system]
+requires = ["setuptools>=75.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "meshscope"
+version = "0.1.0"
+description = "Cross-platform desktop application for viewing, inspecting, measuring, and converting 3D mesh files."
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [{name = "Karl"}]
+dependencies = [
+    "PySide6==6.9.3",
+    "vtk==9.4.2",
+    "trimesh==4.7.4",
+    "numpy==2.2.6",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==8.4.1",
+    "pytest-qt==4.4.0",
+    "black==25.1.0",
+    "ruff==0.11.12",
+    "mypy==1.16.0",
+    "pre-commit==4.2.0",
+    "nuitka==2.8.2",
+    "pip-licenses==5.0.0",
+]
+
+[project.scripts]
+meshscope = "meshscope.main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+# --- Black ---
+[tool.black]
+line-length = 88
+target-version = ["py310"]
+
+# --- Ruff ---
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "SIM",  # flake8-simplify
+    "RUF",  # ruff-specific rules
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["meshscope"]
+
+# --- Mypy ---
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+packages = ["meshscope"]
+mypy_path = "src"
+
+[[tool.mypy.overrides]]
+module = [
+    "trimesh.*",
+    "vtkmodules.*",
+    "vtk.*",
+]
+ignore_missing_imports = true
+
+# --- Pytest ---
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-v --tb=short"
+qt_api = "pyside6"

@@ -37,15 +37,15 @@ These pre-conditions must be completed before Phase 0 begins. See Governance Fra
 | Field | Value |
 |---|---|
 | **Gate** | Phase 0 → Phase 1 |
-| **Approver** | |
-| **Role** | Project Sponsor |
-| **Date** | |
-| **Method** | Email / Ticket / Document |
-| **Reference** | |
-| **Artifacts reviewed** | PRODUCT_MANIFESTO.md, Compliance Screening Matrix (Intake Section 8.4) |
-| **Decision** | Approved / Approved with conditions / Rejected |
-| **Conditions (if any)** | |
-| **Notes** | |
+| **Approver** | Karl |
+| **Role** | Orchestrator (Private POC) |
+| **Date** | 2026-04-05 |
+| **Method** | Claude Code session approval |
+| **Reference** | Phase 0 artifacts in docs/phase-0/ and PRODUCT_MANIFESTO.md |
+| **Artifacts reviewed** | FRD.md, USER_JOURNEY.md, DATA_CONTRACT.md, PRODUCT_MANIFESTO.md (includes Competency Matrix) |
+| **Decision** | Approved |
+| **Conditions (if any)** | None |
+| **Notes** | Governance pre-conditions deferred per Private POC mode. All open questions resolved during Phase 0 session. |
 
 ---
 
@@ -58,15 +58,15 @@ These pre-conditions must be completed before Phase 0 begins. See Governance Fra
 | Field | Value |
 |---|---|
 | **Gate** | Phase 1 → Phase 2 |
-| **Approver** | |
-| **Role** | Senior Technical Authority |
-| **Date** | |
-| **Method** | Email / Ticket / Document |
-| **Reference** | |
-| **Artifacts reviewed** | PROJECT_BIBLE.md, Architecture Decision Records, Threat Model |
-| **Decision** | Approved / Approved with conditions / Rejected |
-| **Conditions (if any)** | |
-| **Notes** | |
+| **Approver** | Karl |
+| **Role** | Orchestrator (Private POC) |
+| **Date** | 2026-04-05 |
+| **Method** | Claude Code session approval |
+| **Reference** | PROJECT_BIBLE.md |
+| **Artifacts reviewed** | PROJECT_BIBLE.md (includes Architecture Decision Record, Threat Model, Data Model, UI Scaffolding, Test Strategy, Coding Standards) |
+| **Decision** | Approved |
+| **Conditions (if any)** | None |
+| **Notes** | Architecture: trimesh + VTK + PySide6. Nuitka + VTK packaging validation required as first Phase 2 task. |
 
 ---
 
