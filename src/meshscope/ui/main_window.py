@@ -11,11 +11,13 @@ from PySide6.QtGui import QAction, QDragEnterEvent, QDropEvent, QKeySequence
 from PySide6.QtWidgets import (
     QFileDialog,
     QMainWindow,
+    QMessageBox,
     QStatusBar,
     QToolBar,
 )
 
-from meshscope.core.exceptions import MeshLoadError
+from meshscope.core.exceptions import MeshExportError, MeshLoadError
+from meshscope.core.mesh_exporter import check_symlink, export_mesh, get_format_warning
 from meshscope.core.mesh_loader import load_mesh
 from meshscope.ui.info_panel import InfoPanel
 from meshscope.ui.viewport_widget import ViewportWidget
@@ -28,6 +30,17 @@ logger = logging.getLogger("meshscope.ui.main_window")
 
 SUPPORTED_EXTENSIONS = {".stl", ".obj", ".3mf", ".ply"}
 FILE_FILTER = "Mesh Files (*.stl *.obj *.3mf *.ply)"
+
+EXPORT_FILTER = (
+    "STL Files (*.stl);;OBJ Files (*.obj);;3MF Files (*.3mf);;PLY Files (*.ply)"
+)
+
+EXPORT_FILTER_TO_TYPE = {
+    "STL Files (*.stl)": "stl",
+    "OBJ Files (*.obj)": "obj",
+    "3MF Files (*.3mf)": "3mf",
+    "PLY Files (*.ply)": "ply",
+}
 
 
 class MainWindow(QMainWindow):
@@ -113,11 +126,18 @@ class MainWindow(QMainWindow):
         self.exit_action.setShortcut(QKeySequence("Ctrl+Q"))
         self.exit_action.triggered.connect(self.close)
 
+        self.export_action = QAction("Export As...", self)
+        self.export_action.setShortcut(QKeySequence("Ctrl+Shift+S"))
+        self.export_action.setEnabled(False)
+        self.export_action.setToolTip("Export mesh to another format")
+        self.export_action.triggered.connect(self._on_export)
+
     # --- Menus ---
 
     def _create_menus(self) -> None:
         file_menu = self.menuBar().addMenu("&File")
         file_menu.addAction(self.open_action)
+        file_menu.addAction(self.export_action)
         file_menu.addSeparator()
         file_menu.addAction(self.exit_action)
 
@@ -147,6 +167,7 @@ class MainWindow(QMainWindow):
         self.addToolBar(Qt.ToolBarArea.LeftToolBarArea, self.toolbar)
 
         self.toolbar.addAction(self.open_action)
+        self.toolbar.addAction(self.export_action)
         self.toolbar.addSeparator()
         self.toolbar.addAction(self.wireframe_action)
         self.toolbar.addAction(self.shading_action)
@@ -220,6 +241,7 @@ class MainWindow(QMainWindow):
         self.wireframe_action.setEnabled(enabled)
         self.shading_action.setEnabled(enabled)
         self.fit_action.setEnabled(enabled)
+        self.export_action.setEnabled(enabled)
 
     # --- Toolbar callbacks ---
 
@@ -234,6 +256,85 @@ class MainWindow(QMainWindow):
     def _on_fit(self) -> None:
         self._viewport.scene_manager.fit_to_view()
         self._viewport.vtk_render()
+
+    def _on_export(self) -> None:
+        """Handle Export As action."""
+        if self._document is None:
+            return
+
+        path_str, selected_filter = QFileDialog.getSaveFileName(
+            self, "Export As", "", EXPORT_FILTER
+        )
+        if not path_str:
+            return
+
+        path = Path(path_str)
+
+        # Detect format from selected filter or file extension
+        file_type = EXPORT_FILTER_TO_TYPE.get(selected_filter)
+        if file_type is None:
+            ext = path.suffix.lower().lstrip(".")
+            file_type = ext if ext in {"stl", "obj", "3mf", "ply"} else None
+        if file_type is None:
+            QMessageBox.warning(
+                self,
+                "Export Error",
+                "Could not determine export format. "
+                "Use a supported extension (.stl, .obj, .3mf, .ply).",
+            )
+            return
+
+        # Ensure correct extension
+        expected_ext = f".{file_type}"
+        if path.suffix.lower() != expected_ext:
+            path = path.with_suffix(expected_ext)
+
+        # Symlink check
+        resolved = check_symlink(path)
+        if resolved is not None:
+            result = QMessageBox.warning(
+                self,
+                "Symlink Detected",
+                f"Target resolves to:\n{resolved}\n\nContinue?",
+                QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel,
+            )
+            if result != QMessageBox.StandardButton.Ok:
+                return
+
+        # Overwrite source check
+        if (
+            self._document.source_path
+            and path.resolve() == Path(self._document.source_path).resolve()
+        ):
+            result = QMessageBox.warning(
+                self,
+                "Overwrite Source",
+                "This will overwrite the currently loaded file. Continue?",
+                QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel,
+            )
+            if result != QMessageBox.StandardButton.Ok:
+                return
+
+        # Format data loss warning
+        warning = get_format_warning(file_type)
+        if warning:
+            result = QMessageBox.warning(
+                self,
+                "Format Warning",
+                f"{warning}\n\nContinue?",
+                QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel,
+            )
+            if result != QMessageBox.StandardButton.Ok:
+                return
+
+        # Perform export
+        try:
+            export_mesh(self._document.mesh, path, file_type)
+            self.statusBar().showMessage(f"Exported to {path.name}")
+            logger.info("Exported to %s", path)
+        except MeshExportError as e:
+            QMessageBox.critical(self, "Export Error", e.user_message)
+            logger.error("Export failed: %s", e.user_message)
 
     # --- Drag and drop ---
 
