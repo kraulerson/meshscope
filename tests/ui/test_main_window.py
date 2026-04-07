@@ -175,6 +175,47 @@ class TestKeyboardShortcuts:
         assert window.viewport.scene_manager.smooth_shading_enabled is False
 
 
+class TestMainWindowExportAction:
+    def test_export_action_exists(self, window: MainWindow) -> None:
+        assert hasattr(window, "export_action")
+
+    def test_export_action_disabled_initially(self, window: MainWindow) -> None:
+        assert not window.export_action.isEnabled()
+
+    def test_export_action_enabled_after_load(self, window: MainWindow) -> None:
+        fixtures = Path(__file__).parent.parent / "fixtures" / "valid"
+        window._load_file(fixtures / "cube.stl")
+        assert window.export_action.isEnabled()
+
+    def test_export_action_disabled_after_error(
+        self, window: MainWindow, tmp_path: Path
+    ) -> None:
+        fixtures = Path(__file__).parent.parent / "fixtures" / "valid"
+        window._load_file(fixtures / "cube.stl")
+        assert window.export_action.isEnabled()
+        bad = tmp_path / "bad.stl"
+        bad.write_bytes(b"not a real stl file")
+        window._load_file(bad)
+        assert not window.export_action.isEnabled()
+
+    def test_export_action_in_file_menu(self, window: MainWindow) -> None:
+        file_menu = None
+        for action in window.menuBar().actions():
+            if "File" in action.text():
+                file_menu = action.menu()
+                break
+        assert file_menu is not None
+        action_texts = [a.text() for a in file_menu.actions()]
+        assert any("Export" in t for t in action_texts)
+
+    def test_export_shortcut_is_ctrl_shift_s(self, window: MainWindow) -> None:
+        assert window.export_action.shortcut() == QKeySequence("Ctrl+Shift+S")
+
+    def test_export_action_in_toolbar(self, window: MainWindow) -> None:
+        toolbar_actions = [a.text() for a in window.toolbar.actions()]
+        assert any("Export" in t for t in toolbar_actions)
+
+
 class TestMainWindowDragDrop:
     def test_accepts_drops(self, window: MainWindow) -> None:
         assert window.acceptDrops()
