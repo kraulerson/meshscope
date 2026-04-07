@@ -6,6 +6,7 @@ import pytest
 from PySide6.QtGui import QKeySequence
 from PySide6.QtWidgets import QApplication
 
+from meshscope.ui.info_panel import InfoPanel
 from meshscope.ui.main_window import MainWindow
 
 
@@ -177,3 +178,42 @@ class TestKeyboardShortcuts:
 class TestMainWindowDragDrop:
     def test_accepts_drops(self, window: MainWindow) -> None:
         assert window.acceptDrops()
+
+
+class TestMainWindowInfoPanel:
+    def test_info_panel_exists(self, window: MainWindow) -> None:
+        assert hasattr(window, "_info_panel")
+        assert isinstance(window._info_panel, InfoPanel)
+
+    def test_info_panel_starts_empty(self, window: MainWindow) -> None:
+        assert window._info_panel.is_empty is True
+
+    def test_info_panel_in_view_menu(self, window: MainWindow) -> None:
+        view_menu = None
+        for action in window.menuBar().actions():
+            if "View" in action.text():
+                view_menu = action.menu()
+                break
+        assert view_menu is not None
+        action_texts = [a.text() for a in view_menu.actions()]
+        assert any("Info" in t for t in action_texts)
+
+    def test_info_panel_populated_after_load(self, window: MainWindow) -> None:
+        fixtures = Path(__file__).parent.parent / "fixtures" / "valid"
+        window._load_file(fixtures / "cube.stl")
+        assert window._info_panel.is_empty is False
+
+    def test_info_panel_cleared_on_error(
+        self, window: MainWindow, tmp_path: Path
+    ) -> None:
+        fixtures = Path(__file__).parent.parent / "fixtures" / "valid"
+        window._load_file(fixtures / "cube.stl")
+        assert window._info_panel.is_empty is False
+        bad = tmp_path / "bad.stl"
+        bad.write_bytes(b"not a real stl file")
+        window._load_file(bad)
+        assert window._info_panel.is_empty is True
+
+    def test_info_toggle_shortcut_is_i(self, window: MainWindow) -> None:
+        toggle_action = window._info_panel.toggleViewAction()
+        assert toggle_action.shortcut() == QKeySequence("I")
