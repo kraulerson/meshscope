@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication, QDockWidget
 
 from meshscope.core.mesh_data import BoundingBox, MeshData, MeshMetadata
@@ -256,3 +257,45 @@ class TestInfoPanelUnitWarning:
         doc = _make_document(warnings=["OBJ: material library not supported"])
         panel.set_document(doc)
         assert panel.warning_banner_visible() is False
+
+
+class TestInfoPanelAccessibility:
+    def test_dock_widget_accessible_name(self, qapp: QApplication) -> None:
+        panel = InfoPanel()
+        assert panel.accessibleName() == "Mesh Info Panel"
+
+    def test_section_headers_have_accessible_names(self, qapp: QApplication) -> None:
+        panel = InfoPanel()
+        for section in (
+            panel._file_section,
+            panel._geometry_section,
+            panel._dimensions_section,
+            panel._status_section,
+        ):
+            name = section.header_button.accessibleName()
+            assert "section" in name.lower()
+            assert "expanded" in name.lower() or "collapsed" in name.lower()
+
+    def test_manifold_status_has_accessible_name(self, qapp: QApplication) -> None:
+        panel = InfoPanel()
+        panel.set_document(_make_document(is_manifold=True))
+        assert "Yes" in panel._manifold_label.accessibleName()
+
+    def test_non_manifold_status_has_accessible_name(self, qapp: QApplication) -> None:
+        panel = InfoPanel()
+        panel.set_document(_make_document(is_manifold=False))
+        assert "No" in panel._manifold_label.accessibleName()
+
+    def test_warning_banner_has_accessible_name(self, qapp: QApplication) -> None:
+        panel = InfoPanel()
+        assert panel._warning_banner.accessibleName() == "Unit mismatch warning"
+
+    def test_section_header_keyboard_focusable(self, qapp: QApplication) -> None:
+        panel = InfoPanel()
+        for section in (
+            panel._file_section,
+            panel._geometry_section,
+            panel._dimensions_section,
+            panel._status_section,
+        ):
+            assert section.header_button.focusPolicy() == Qt.FocusPolicy.TabFocus

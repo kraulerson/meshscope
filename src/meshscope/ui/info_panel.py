@@ -216,6 +216,27 @@ class InfoPanel(QDockWidget):
         self._scroll.setWidget(self._content)
 
         self._is_empty = True
+        self._apply_styles()
+
+    def _apply_styles(self) -> None:
+        """Apply dark theme styles matching the main application."""
+        self._warning_banner.setStyleSheet(
+            "QLabel {"
+            "  background-color: #4a3000;"
+            "  border-left: 3px solid #f0a030;"
+            "  padding: 8px 10px;"
+            "  color: #e0e0e0;"
+            "  font-size: 12px;"
+            "}"
+        )
+        self._inline_unit_warning.setStyleSheet(
+            "QLabel {"
+            "  background-color: #3a3000;"
+            "  padding: 4px 8px;"
+            "  color: #d0a040;"
+            "  font-size: 11px;"
+            "}"
+        )
 
     @property
     def is_empty(self) -> bool:
