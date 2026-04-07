@@ -3,6 +3,8 @@
 from pathlib import Path
 
 import pytest
+from PySide6.QtCore import QMimeData, Qt, QUrl
+from PySide6.QtGui import QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import QApplication
 
 from meshscope.ui.main_window import MainWindow
@@ -77,6 +79,14 @@ class TestFileLoadingErrors:
         assert window.viewport.state == "error"
         assert not window.wireframe_action.isEnabled()
 
+    def test_error_after_success_clears_mesh(self, window: MainWindow) -> None:
+        """Previous mesh must be cleared from viewport when load fails."""
+        window._load_file(VALID / "cube.stl")
+        assert window.viewport.scene_manager.has_mesh is True
+        window._load_file(INVALID / "corrupt.stl")
+        assert window.viewport.scene_manager.has_mesh is False
+        assert window.document is None
+
 
 class TestCLIArgument:
     def test_file_path_loaded_on_construction(self, qapp: QApplication) -> None:
@@ -89,3 +99,56 @@ class TestCLIArgument:
         window = MainWindow(file_path="/nonexistent/file.stl")
         assert window.viewport.state == "error"
         window.close()
+
+    def test_dunder_main_module_exists(self) -> None:
+        """Regression: python -m meshscope requires __main__.py."""
+        import importlib.util
+
+        spec = importlib.util.find_spec("meshscope.__main__")
+        assert spec is not None, "meshscope.__main__ must exist for python -m meshscope"
+
+
+class TestDragDropLoading:
+    def test_drag_enter_accepts_stl(self, window: MainWindow) -> None:
+        """Drag-enter with a .stl file should be accepted."""
+        mime = QMimeData()
+        mime.setUrls([QUrl.fromLocalFile(str(VALID / "cube.stl"))])
+        event = QDragEnterEvent(
+            window.rect().center(),
+            Qt.DropAction.CopyAction,
+            mime,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        window.dragEnterEvent(event)
+        assert event.isAccepted()
+
+    def test_drag_enter_rejects_unsupported_format(self, window: MainWindow) -> None:
+        """Drag-enter with an unsupported extension should not be accepted."""
+        mime = QMimeData()
+        mime.setUrls([QUrl.fromLocalFile("/some/file.txt")])
+        event = QDragEnterEvent(
+            window.rect().center(),
+            Qt.DropAction.CopyAction,
+            mime,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        window.dragEnterEvent(event)
+        assert not event.isAccepted()
+
+    def test_drop_stl_loads_mesh(self, window: MainWindow) -> None:
+        """Dropping a valid .stl file should load and display it."""
+        mime = QMimeData()
+        mime.setUrls([QUrl.fromLocalFile(str(VALID / "cube.stl"))])
+        event = QDropEvent(
+            window.rect().center().toPointF(),
+            Qt.DropAction.CopyAction,
+            mime,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        window.dropEvent(event)
+        assert window.viewport.state == "success"
+        assert window.document is not None
+        assert window.document.mesh.metadata.face_count == 12

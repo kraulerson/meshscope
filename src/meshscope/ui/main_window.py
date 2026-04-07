@@ -43,6 +43,7 @@ class MainWindow(QMainWindow):
         self.setAcceptDrops(True)
 
         self._document: MeshDocument | None = None
+        self._is_loading = False
 
         # Viewport (central widget)
         self._viewport = ViewportWidget(self)
@@ -151,6 +152,10 @@ class MainWindow(QMainWindow):
 
     def _load_file(self, path: Path) -> None:
         """Load a mesh file and display it in the viewport."""
+        if self._is_loading:
+            return
+
+        self._is_loading = True
         self._set_state_loading(path.name)
 
         try:
@@ -162,6 +167,8 @@ class MainWindow(QMainWindow):
             self._set_state_error(f"Unexpected error: {e}")
             logger.exception("Unexpected error loading %s", path)
             return
+        finally:
+            self._is_loading = False
 
         self._document = doc
 
@@ -191,6 +198,9 @@ class MainWindow(QMainWindow):
         self._set_render_actions_enabled(True)
 
     def _set_state_error(self, message: str) -> None:
+        self._document = None
+        self._viewport.scene_manager.clear()
+        self._viewport.vtk_render()
         self.statusBar().showMessage(message)
         self._viewport.show_error(message)
         self._set_render_actions_enabled(False)
