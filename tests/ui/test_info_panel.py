@@ -102,34 +102,34 @@ class TestCollapsibleSection:
 class TestInfoPanelFileSection:
     def test_shows_filename(self, qapp: QApplication) -> None:
         panel = InfoPanel()
-        panel.update(_make_document())
+        panel.set_document(_make_document())
         assert "bracket.stl" in panel.file_section_text()
 
     def test_shows_format_uppercased(self, qapp: QApplication) -> None:
         panel = InfoPanel()
-        panel.update(_make_document())
+        panel.set_document(_make_document())
         assert "STL" in panel.file_section_text()
 
     def test_shows_file_size_human_readable(self, qapp: QApplication) -> None:
         panel = InfoPanel()
-        panel.update(_make_document())
+        panel.set_document(_make_document())
         assert "4.0 MB" in panel.file_section_text()
 
 
 class TestInfoPanelGeometrySection:
     def test_shows_vertex_count(self, qapp: QApplication) -> None:
         panel = InfoPanel()
-        panel.update(_make_document())
+        panel.set_document(_make_document())
         assert "8" in panel.geometry_section_text()
 
     def test_shows_face_count(self, qapp: QApplication) -> None:
         panel = InfoPanel()
-        panel.update(_make_document())
+        panel.set_document(_make_document())
         assert "12" in panel.geometry_section_text()
 
     def test_shows_surface_area(self, qapp: QApplication) -> None:
         panel = InfoPanel()
-        panel.update(_make_document())
+        panel.set_document(_make_document())
         text = panel.geometry_section_text()
         assert "600.0" in text
         assert "mm" in text
@@ -138,7 +138,7 @@ class TestInfoPanelGeometrySection:
 class TestInfoPanelDimensionsSection:
     def test_shows_size_xyz(self, qapp: QApplication) -> None:
         panel = InfoPanel()
-        panel.update(_make_document())
+        panel.set_document(_make_document())
         text = panel.dimensions_section_text()
         assert "10.0" in text
         assert "20.0" in text
@@ -146,33 +146,33 @@ class TestInfoPanelDimensionsSection:
 
     def test_min_max_sub_section_exists(self, qapp: QApplication) -> None:
         panel = InfoPanel()
-        panel.update(_make_document())
+        panel.set_document(_make_document())
         assert panel.has_min_max_subsection()
 
 
 class TestInfoPanelStatusSection:
     def test_manifold_yes(self, qapp: QApplication) -> None:
         panel = InfoPanel()
-        panel.update(_make_document(is_manifold=True))
+        panel.set_document(_make_document(is_manifold=True))
         text = panel.status_section_text()
         assert "Yes" in text
 
     def test_manifold_no(self, qapp: QApplication) -> None:
         panel = InfoPanel()
-        panel.update(_make_document(is_manifold=False))
+        panel.set_document(_make_document(is_manifold=False))
         text = panel.status_section_text()
         assert "No" in text
 
     def test_volume_shown_when_manifold(self, qapp: QApplication) -> None:
         panel = InfoPanel()
-        panel.update(_make_document(is_manifold=True, volume=1000.0))
+        panel.set_document(_make_document(is_manifold=True, volume=1000.0))
         text = panel.status_section_text()
         assert "1,000.0" in text
         assert "mm" in text
 
     def test_volume_na_when_non_manifold(self, qapp: QApplication) -> None:
         panel = InfoPanel()
-        panel.update(_make_document(is_manifold=False))
+        panel.set_document(_make_document(is_manifold=False))
         text = panel.status_section_text()
         assert "N/A" in text
 
@@ -180,12 +180,12 @@ class TestInfoPanelStatusSection:
 class TestInfoPanelUpdateClear:
     def test_update_clears_empty_state(self, qapp: QApplication) -> None:
         panel = InfoPanel()
-        panel.update(_make_document())
+        panel.set_document(_make_document())
         assert panel.is_empty is False
 
     def test_clear_after_update_resets_to_empty(self, qapp: QApplication) -> None:
         panel = InfoPanel()
-        panel.update(_make_document())
+        panel.set_document(_make_document())
         panel.clear()
         assert panel.is_empty is True
 
@@ -193,7 +193,7 @@ class TestInfoPanelUpdateClear:
 class TestInfoPanelUnitWarning:
     def test_no_warning_when_no_mismatch(self, qapp: QApplication) -> None:
         panel = InfoPanel()
-        panel.update(_make_document(warnings=[]))
+        panel.set_document(_make_document(warnings=[]))
         assert panel.warning_banner_visible() is False
 
     def test_warning_shown_when_unit_mismatch(self, qapp: QApplication) -> None:
@@ -203,7 +203,7 @@ class TestInfoPanelUnitWarning:
                 "Dimensions may indicate a unit mismatch. Consider scaling by 25.4"
             ]
         )
-        panel.update(doc)
+        panel.set_document(doc)
         assert panel.warning_banner_visible() is True
 
     def test_warning_banner_text_contains_message(self, qapp: QApplication) -> None:
@@ -213,7 +213,7 @@ class TestInfoPanelUnitWarning:
                 "Dimensions may indicate a unit mismatch. Consider scaling by 25.4"
             ]
         )
-        panel.update(doc)
+        panel.set_document(doc)
         assert "unit mismatch" in panel.warning_banner_text().lower()
 
     def test_inline_warning_shown_in_dimensions(self, qapp: QApplication) -> None:
@@ -223,7 +223,7 @@ class TestInfoPanelUnitWarning:
                 "Dimensions may indicate a unit mismatch. Consider scaling by 25.4"
             ]
         )
-        panel.update(doc)
+        panel.set_document(doc)
         assert panel.inline_unit_warning_visible() is True
 
     def test_warning_cleared_on_clear(self, qapp: QApplication) -> None:
@@ -233,7 +233,7 @@ class TestInfoPanelUnitWarning:
                 "Dimensions may indicate a unit mismatch. Consider scaling by 25.4"
             ]
         )
-        panel.update(doc)
+        panel.set_document(doc)
         panel.clear()
         assert panel.warning_banner_visible() is False
 
@@ -246,13 +246,13 @@ class TestInfoPanelUnitWarning:
                 "Dimensions may indicate a unit mismatch. Consider scaling by 25.4"
             ]
         )
-        panel.update(doc_warn)
+        panel.set_document(doc_warn)
         assert panel.warning_banner_visible() is True
-        panel.update(_make_document(warnings=[]))
+        panel.set_document(_make_document(warnings=[]))
         assert panel.warning_banner_visible() is False
 
     def test_non_unit_warnings_do_not_trigger_banner(self, qapp: QApplication) -> None:
         panel = InfoPanel()
         doc = _make_document(warnings=["OBJ: material library not supported"])
-        panel.update(doc)
+        panel.set_document(doc)
         assert panel.warning_banner_visible() is False

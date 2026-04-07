@@ -175,8 +175,12 @@ class InfoPanel(QDockWidget):
 
         # --- Dimensions section ---
         self._dimensions_section = CollapsibleSection("Dimensions")
-        self._size_xyz_label = QLabel()
-        self._dimensions_section.content_layout.addWidget(self._size_xyz_label)
+        self._size_x = QLabel()
+        self._size_y = QLabel()
+        self._size_z = QLabel()
+        self._dimensions_section.content_layout.addWidget(self._size_x)
+        self._dimensions_section.content_layout.addWidget(self._size_y)
+        self._dimensions_section.content_layout.addWidget(self._size_z)
 
         # Inline unit warning inside Dimensions
         self._inline_unit_warning = QLabel(
@@ -188,8 +192,12 @@ class InfoPanel(QDockWidget):
 
         # Min/max collapsible sub-section inside Dimensions
         self._minmax_section = CollapsibleSection("Min / Max", expanded=False)
-        self._minmax_label = QLabel()
-        self._minmax_section.content_layout.addWidget(self._minmax_label)
+        self._min_max_x = QLabel()
+        self._min_max_y = QLabel()
+        self._min_max_z = QLabel()
+        self._minmax_section.content_layout.addWidget(self._min_max_x)
+        self._minmax_section.content_layout.addWidget(self._min_max_y)
+        self._minmax_section.content_layout.addWidget(self._min_max_z)
         self._dimensions_section.content_layout.addWidget(self._minmax_section)
 
         self._dimensions_section.setVisible(False)
@@ -213,8 +221,8 @@ class InfoPanel(QDockWidget):
     def is_empty(self) -> bool:
         return self._is_empty
 
-    def load(self, doc: MeshDocument) -> None:
-        """Populate all sections with data from doc."""
+    def set_document(self, doc: MeshDocument) -> None:
+        """Populate all sections with data from the given MeshDocument."""
         self._populate(doc)
 
     def _populate(self, doc: MeshDocument) -> None:
@@ -239,22 +247,26 @@ class InfoPanel(QDockWidget):
 
         # Dimensions section
         x, y, z = bb.size_x, bb.size_y, bb.size_z
-        sep = " \u00d7 "
-        self._size_xyz_label.setText(
-            f"W{sep}D{sep}H: {x:.1f}{sep}{y:.1f}{sep}{z:.1f} mm"
-        )
-        self._minmax_label.setText(
-            f"Min: ({bb.min_x:.1f}, {bb.min_y:.1f}, {bb.min_z:.1f})\n"
-            f"Max: ({bb.max_x:.1f}, {bb.max_y:.1f}, {bb.max_z:.1f})"
-        )
+        self._size_x.setText(f"Size X: {x:,.1f} mm")
+        self._size_y.setText(f"Size Y: {y:,.1f} mm")
+        self._size_z.setText(f"Size Z: {z:,.1f} mm")
+        self._min_max_x.setText(f"X: [{bb.min_x:.1f}, {bb.max_x:.1f}]")
+        self._min_max_y.setText(f"Y: [{bb.min_y:.1f}, {bb.max_y:.1f}]")
+        self._min_max_z.setText(f"Z: [{bb.min_z:.1f}, {bb.max_z:.1f}]")
 
         # Status section
-        manifold_str = "Yes" if meta.is_manifold else "No"
-        self._manifold_label.setText(f"Manifold: {manifold_str}")
+        if meta.is_manifold:
+            manifold_text = f"{_CHECKMARK} Manifold: Yes"
+            manifold_accessible = "Manifold: Yes"
+        else:
+            manifold_text = f"{_WARNING} Manifold: No"
+            manifold_accessible = "Manifold: No"
+        self._manifold_label.setText(manifold_text)
+        self._manifold_label.setAccessibleName(manifold_accessible)
         if meta.is_manifold and meta.volume_mm3 is not None:
             volume_str = f"{meta.volume_mm3:,.1f} mm{_SUPERSCRIPT_3}"
         else:
-            volume_str = "N/A"
+            volume_str = "N/A (non-manifold)"
         self._volume_label.setText(f"Volume: {volume_str}")
 
         # Unit mismatch warning
@@ -284,10 +296,6 @@ class InfoPanel(QDockWidget):
         self._status_section.setVisible(True)
 
         self._is_empty = False
-
-    def update(self, doc: MeshDocument) -> None:  # type: ignore[override]
-        """Populate all sections with data from the given MeshDocument."""
-        self._populate(doc)
 
     def clear(self) -> None:
         """Reset panel to empty state."""
@@ -326,8 +334,12 @@ class InfoPanel(QDockWidget):
         """Return combined text of dimensions section labels (for testing)."""
         return "\n".join(
             [
-                self._size_xyz_label.text(),
-                self._minmax_label.text(),
+                self._size_x.text(),
+                self._size_y.text(),
+                self._size_z.text(),
+                self._min_max_x.text(),
+                self._min_max_y.text(),
+                self._min_max_z.text(),
             ]
         )
 
