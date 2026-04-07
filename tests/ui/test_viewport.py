@@ -51,6 +51,22 @@ class TestViewportWidgetStates:
         assert widget.state == "loading"
 
 
+class TestViewportWidgetOpenGL2Backend:
+    """Regression: VTK requires OpenGL2 factory imports to render."""
+
+    def test_opengl2_renderer_factory_registered(self, widget: ViewportWidget) -> None:
+        """vtkRenderingOpenGL2 must be imported so VTK can render with OpenGL."""
+        import vtkmodules.vtkRenderingOpenGL2 as gl2
+
+        assert gl2 is not None
+
+    def test_interaction_style_factory_registered(self, widget: ViewportWidget) -> None:
+        """vtkInteractionStyle must be imported for mouse interaction."""
+        import vtkmodules.vtkInteractionStyle as style
+
+        assert style is not None
+
+
 class TestViewportWidgetVTKInitialization:
     """Regression: VTK must not be initialized before widget is shown."""
 

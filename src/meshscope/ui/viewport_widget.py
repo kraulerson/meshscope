@@ -8,7 +8,11 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QResizeEvent, QShowEvent
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 from vtkmodules.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
+from vtkmodules.vtkInteractionStyle import (
+    vtkInteractorStyleTrackballCamera,  # noqa: F401
+)
 from vtkmodules.vtkRenderingCore import vtkRenderer
+from vtkmodules.vtkRenderingOpenGL2 import vtkOpenGLRenderer  # noqa: F401
 
 from meshscope.vtk_adapter.scene_manager import SceneManager
 
