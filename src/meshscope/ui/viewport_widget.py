@@ -9,7 +9,7 @@ from PySide6.QtGui import QResizeEvent, QShowEvent
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 from vtkmodules.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
 from vtkmodules.vtkInteractionStyle import (
-    vtkInteractorStyleTrackballCamera,  # noqa: F401
+    vtkInteractorStyleTrackballCamera,
 )
 from vtkmodules.vtkRenderingCore import vtkRenderer
 from vtkmodules.vtkRenderingOpenGL2 import vtkOpenGLRenderer  # noqa: F401
@@ -101,8 +101,10 @@ class ViewportWidget(QWidget):
     def _ensure_vtk_initialized(self) -> None:
         """Initialize VTK interactor on first use (requires valid OpenGL context)."""
         if not self._vtk_initialized:
+            iren = self._vtk_widget.GetRenderWindow().GetInteractor()  # type: ignore[no-untyped-call]
+            iren.SetInteractorStyle(vtkInteractorStyleTrackballCamera())
             self._vtk_widget.GetRenderWindow().Render()  # type: ignore[no-untyped-call]
-            self._vtk_widget.GetRenderWindow().GetInteractor().Initialize()  # type: ignore[no-untyped-call]
+            iren.Initialize()
             self._vtk_initialized = True
 
     def showEvent(self, event: QShowEvent) -> None:

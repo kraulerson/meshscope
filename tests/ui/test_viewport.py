@@ -51,6 +51,19 @@ class TestViewportWidgetStates:
         assert widget.state == "loading"
 
 
+class TestViewportWidgetInteractionStyle:
+    """FRD requires trackball rotation, not joystick."""
+
+    def test_interactor_uses_trackball_camera(self, widget: ViewportWidget) -> None:
+        """Interactor must use trackball camera style, not joystick."""
+        from vtkmodules.vtkInteractionStyle import vtkInteractorStyleTrackballCamera
+
+        widget._ensure_vtk_initialized()
+        iren = widget.vtk_interactor.GetRenderWindow().GetInteractor()
+        style = iren.GetInteractorStyle()
+        assert isinstance(style, vtkInteractorStyleTrackballCamera)
+
+
 class TestViewportWidgetOpenGL2Backend:
     """Regression: VTK requires OpenGL2 factory imports to render."""
 
