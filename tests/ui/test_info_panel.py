@@ -188,3 +188,71 @@ class TestInfoPanelUpdateClear:
         panel.update(_make_document())
         panel.clear()
         assert panel.is_empty is True
+
+
+class TestInfoPanelUnitWarning:
+    def test_no_warning_when_no_mismatch(self, qapp: QApplication) -> None:
+        panel = InfoPanel()
+        panel.update(_make_document(warnings=[]))
+        assert panel.warning_banner_visible() is False
+
+    def test_warning_shown_when_unit_mismatch(self, qapp: QApplication) -> None:
+        panel = InfoPanel()
+        doc = _make_document(
+            warnings=[
+                "Dimensions may indicate a unit mismatch. Consider scaling by 25.4"
+            ]
+        )
+        panel.update(doc)
+        assert panel.warning_banner_visible() is True
+
+    def test_warning_banner_text_contains_message(self, qapp: QApplication) -> None:
+        panel = InfoPanel()
+        doc = _make_document(
+            warnings=[
+                "Dimensions may indicate a unit mismatch. Consider scaling by 25.4"
+            ]
+        )
+        panel.update(doc)
+        assert "unit mismatch" in panel.warning_banner_text().lower()
+
+    def test_inline_warning_shown_in_dimensions(self, qapp: QApplication) -> None:
+        panel = InfoPanel()
+        doc = _make_document(
+            warnings=[
+                "Dimensions may indicate a unit mismatch. Consider scaling by 25.4"
+            ]
+        )
+        panel.update(doc)
+        assert panel.inline_unit_warning_visible() is True
+
+    def test_warning_cleared_on_clear(self, qapp: QApplication) -> None:
+        panel = InfoPanel()
+        doc = _make_document(
+            warnings=[
+                "Dimensions may indicate a unit mismatch. Consider scaling by 25.4"
+            ]
+        )
+        panel.update(doc)
+        panel.clear()
+        assert panel.warning_banner_visible() is False
+
+    def test_warning_hidden_on_update_without_mismatch(
+        self, qapp: QApplication
+    ) -> None:
+        panel = InfoPanel()
+        doc_warn = _make_document(
+            warnings=[
+                "Dimensions may indicate a unit mismatch. Consider scaling by 25.4"
+            ]
+        )
+        panel.update(doc_warn)
+        assert panel.warning_banner_visible() is True
+        panel.update(_make_document(warnings=[]))
+        assert panel.warning_banner_visible() is False
+
+    def test_non_unit_warnings_do_not_trigger_banner(self, qapp: QApplication) -> None:
+        panel = InfoPanel()
+        doc = _make_document(warnings=["OBJ: material library not supported"])
+        panel.update(doc)
+        assert panel.warning_banner_visible() is False
