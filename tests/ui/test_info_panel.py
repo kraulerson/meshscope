@@ -298,4 +298,4 @@ class TestInfoPanelAccessibility:
             panel._dimensions_section,
             panel._status_section,
         ):
-            assert section.header_button.focusPolicy() == Qt.FocusPolicy.TabFocus
+            assert section.header_button.focusPolicy() == Qt.FocusPolicy.StrongFocus

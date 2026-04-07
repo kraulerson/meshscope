@@ -69,7 +69,13 @@ class CollapsibleSection(QWidget):
         # Header button
         self._header = QPushButton()
         self._header.setFlat(True)
-        self._header.setFocusPolicy(Qt.FocusPolicy.TabFocus)
+        self._header.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self._header.setStyleSheet(
+            "QPushButton:focus { border: 2px solid #4a9eff; outline: none; }"
+            "QPushButton {"
+            " text-align: left; padding: 8px 10px; border: 2px solid transparent;"
+            " }"
+        )
         self._header.clicked.connect(self.toggle)
         self._update_header_text()
         layout.addWidget(self._header)
@@ -129,6 +135,7 @@ class InfoPanel(QDockWidget):
         self._scroll = QScrollArea()
         self._scroll.setWidgetResizable(True)
         self._scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        self._scroll.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.setWidget(self._scroll)
 
         # Main content widget
