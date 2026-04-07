@@ -93,11 +93,19 @@ def export_mesh(mesh: MeshData, path: Path, file_type: str) -> None:
 def check_symlink(path: Path) -> Path | None:
     """Check if path contains a symlink.
 
-    Returns resolved path if different from input path, None if safe.
+    Returns the realpath if any component of the path is a symlink,
+    None if the path contains no symlinks.
     """
     resolved = Path(os.path.realpath(path))
-    if resolved != path.resolve():
-        return resolved
+    # Walk each existing component; if any is a symlink, the path is unsafe.
+    current = path
+    while True:
+        if current.is_symlink():
+            return resolved
+        parent = current.parent
+        if parent == current:
+            break
+        current = parent
     return None
 
 

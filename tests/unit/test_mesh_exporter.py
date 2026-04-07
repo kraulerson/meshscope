@@ -8,7 +8,7 @@ import numpy as np
 
 from meshscope.core.exceptions import MeshExportError
 from meshscope.core.mesh_data import BoundingBox, MeshData, MeshMetadata
-from meshscope.core.mesh_exporter import export_mesh
+from meshscope.core.mesh_exporter import check_symlink, export_mesh, get_format_warning
 
 
 class TestMeshExportError:
@@ -121,3 +121,35 @@ class TestExportMeshUnsupportedFormat:
             raise AssertionError("Should have raised MeshExportError")
         except MeshExportError as e:
             assert "Unsupported" in e.user_message
+
+
+class TestCheckSymlink:
+    def test_regular_path_returns_none(self, tmp_path: Path) -> None:
+        target = tmp_path / "output.stl"
+        assert check_symlink(target) is None
+
+    def test_symlink_returns_resolved_path(self, tmp_path: Path) -> None:
+        real_dir = tmp_path / "real"
+        real_dir.mkdir()
+        link = tmp_path / "link"
+        link.symlink_to(real_dir)
+        target = link / "output.stl"
+        resolved = check_symlink(target)
+        assert resolved is not None
+        assert "real" in str(resolved)
+
+
+class TestGetFormatWarning:
+    def test_obj_has_warning(self) -> None:
+        warning = get_format_warning("obj")
+        assert warning is not None
+        assert "normal" in warning.lower()
+
+    def test_stl_has_no_warning(self) -> None:
+        assert get_format_warning("stl") is None
+
+    def test_3mf_has_no_warning(self) -> None:
+        assert get_format_warning("3mf") is None
+
+    def test_ply_has_no_warning(self) -> None:
+        assert get_format_warning("ply") is None
