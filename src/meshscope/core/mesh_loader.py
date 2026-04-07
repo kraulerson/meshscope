@@ -171,9 +171,27 @@ def _validate_binary_stl(path: Path) -> None:
 
 
 def _trimesh_to_mesh_data(tm_mesh: trimesh.Trimesh) -> MeshData:
-    """Convert a trimesh.Trimesh to our MeshData."""
+    """Convert a trimesh.Trimesh to our MeshData.
+
+    Validates vertex data and face indices before conversion.
+    Raises CorruptFileError if data is invalid.
+    """
     vertices = np.asarray(tm_mesh.vertices, dtype=np.float32)
     faces = np.asarray(tm_mesh.faces, dtype=np.uint32)
+
+    # Validate vertices: reject NaN or Inf
+    if np.any(np.isnan(vertices)):
+        raise CorruptFileError("Mesh contains NaN vertex coordinates.")
+    if np.any(np.isinf(vertices)):
+        raise CorruptFileError("Mesh contains Inf vertex coordinates.")
+
+    # Validate face indices: must reference existing vertices
+    if len(faces) > 0 and np.max(faces) >= len(vertices):
+        raise CorruptFileError(
+            f"Mesh has face referencing vertex {int(np.max(faces))} "
+            f"but only {len(vertices)} vertices exist."
+        )
+
     normals = np.asarray(tm_mesh.face_normals, dtype=np.float32)
 
     bounds = tm_mesh.bounds  # [[min_x, min_y, min_z], [max_x, max_y, max_z]]

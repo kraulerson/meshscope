@@ -69,7 +69,10 @@ class SceneManager:
         self._smooth_shading_enabled = False
 
         # Auto-frame the model
-        self.fit_to_view()
+        try:
+            self.fit_to_view()
+        except Exception:
+            logger.warning("fit_to_view failed after display_mesh", exc_info=True)
 
         logger.debug("Displayed mesh: %d cells", polydata.GetNumberOfCells())
 
@@ -129,11 +132,13 @@ class SceneManager:
 
     def fit_to_view(self) -> None:
         """Auto-frame the camera to show the entire scene with padding."""
-        self._renderer.ResetCamera()
-        # Add 10% padding by dollying out slightly
-        camera = self._renderer.GetActiveCamera()
-        camera.Dolly(0.9)
-        self._renderer.ResetCameraClippingRange()
+        try:
+            self._renderer.ResetCamera()
+            camera = self._renderer.GetActiveCamera()
+            camera.Dolly(0.9)
+            self._renderer.ResetCameraClippingRange()
+        except Exception:
+            logger.warning("fit_to_view failed", exc_info=True)
 
     @property
     def has_mesh(self) -> bool:

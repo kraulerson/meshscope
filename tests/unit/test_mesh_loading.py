@@ -126,3 +126,49 @@ class TestLoadMeshErrors:
     def test_empty_ply(self) -> None:
         with pytest.raises((CorruptFileError, EmptyMeshError)):
             load_mesh(INVALID / "empty_file.ply")
+
+
+class TestMeshDataValidation:
+    """Tests for post-parse data validation (face bounds, NaN/Inf)."""
+
+    def test_nan_vertices_rejected(self) -> None:
+        """Mesh with NaN vertex coordinates must raise CorruptFileError."""
+        import trimesh as tm
+
+        from meshscope.core.mesh_loader import _trimesh_to_mesh_data
+
+        nan_mesh = tm.Trimesh(
+            vertices=[[float("nan"), 0, 0], [10, 0, 0], [10, 10, 0], [0, 10, 0]],
+            faces=[[0, 1, 2], [0, 2, 3]],
+            process=False,
+        )
+        with pytest.raises(CorruptFileError, match="NaN"):
+            _trimesh_to_mesh_data(nan_mesh)
+
+    def test_inf_vertices_rejected(self) -> None:
+        """Mesh with Inf vertex coordinates must raise CorruptFileError."""
+        import trimesh as tm
+
+        from meshscope.core.mesh_loader import _trimesh_to_mesh_data
+
+        inf_mesh = tm.Trimesh(
+            vertices=[[float("inf"), 0, 0], [10, 0, 0], [10, 10, 0], [0, 10, 0]],
+            faces=[[0, 1, 2], [0, 2, 3]],
+            process=False,
+        )
+        with pytest.raises(CorruptFileError, match="Inf"):
+            _trimesh_to_mesh_data(inf_mesh)
+
+    def test_face_index_out_of_bounds_rejected(self) -> None:
+        """Mesh with face indices beyond vertex count must raise CorruptFileError."""
+        import trimesh as tm
+
+        from meshscope.core.mesh_loader import _trimesh_to_mesh_data
+
+        bad_mesh = tm.Trimesh(
+            vertices=[[0, 0, 0], [10, 0, 0], [10, 10, 0], [0, 10, 0]],
+            faces=[[0, 1, 2], [0, 2, 3], [100, 200, 300]],
+            process=False,
+        )
+        with pytest.raises(CorruptFileError, match="vertex"):
+            _trimesh_to_mesh_data(bad_mesh)

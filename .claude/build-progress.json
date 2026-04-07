@@ -1,9 +1,12 @@
 {
-  "features_completed": [],
-  "features_since_last_test": 0,
+  "features_completed": [
+    "file-loading",
+    "3d-viewport"
+  ],
+  "features_since_last_test": 2,
   "test_interval": 2,
   "last_test_session": null,
-  "testing_required": false,
+  "testing_required": true,
   "tester_count": 1,
   "bug_tracker": "github_issues",
   "sessions_completed": 0
