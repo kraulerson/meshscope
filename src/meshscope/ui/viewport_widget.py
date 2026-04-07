@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QResizeEvent
+from PySide6.QtGui import QResizeEvent, QShowEvent
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 from vtkmodules.qt.QVTKRenderWindowInteractor import QVTKRenderWindowInteractor
 from vtkmodules.vtkRenderingCore import vtkRenderer
@@ -25,6 +25,7 @@ class ViewportWidget(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._state = "empty"
+        self._vtk_initialized = False
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -52,10 +53,6 @@ class ViewportWidget(QWidget):
         )
         self._empty_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self._empty_label.setAccessibleName("Viewport empty state prompt")
-
-        # Initialize interactor — must happen after renderer is added
-        self._vtk_widget.GetRenderWindow().Render()  # type: ignore[no-untyped-call]
-        self._vtk_widget.GetRenderWindow().GetInteractor().Initialize()  # type: ignore[no-untyped-call]
 
     @property
     def renderer(self) -> vtkRenderer:
@@ -97,8 +94,21 @@ class ViewportWidget(QWidget):
         self._empty_label.show()
         logger.error("Viewport error: %s", message)
 
+    def _ensure_vtk_initialized(self) -> None:
+        """Initialize VTK interactor on first use (requires valid OpenGL context)."""
+        if not self._vtk_initialized:
+            self._vtk_widget.GetRenderWindow().Render()  # type: ignore[no-untyped-call]
+            self._vtk_widget.GetRenderWindow().GetInteractor().Initialize()  # type: ignore[no-untyped-call]
+            self._vtk_initialized = True
+
+    def showEvent(self, event: QShowEvent) -> None:
+        """Initialize VTK on first show when OpenGL context is valid."""
+        super().showEvent(event)
+        self._ensure_vtk_initialized()
+
     def vtk_render(self) -> None:
         """Trigger a VTK render."""
+        self._ensure_vtk_initialized()
         self._vtk_widget.GetRenderWindow().Render()  # type: ignore[no-untyped-call]
 
     def resizeEvent(self, event: QResizeEvent) -> None:

@@ -92,6 +92,13 @@ class TestCLIArgument:
         assert window.viewport.state == "error"
         window.close()
 
+    def test_dunder_main_module_exists(self) -> None:
+        """Regression: python -m meshscope requires __main__.py."""
+        import importlib.util
+
+        spec = importlib.util.find_spec("meshscope.__main__")
+        assert spec is not None, "meshscope.__main__ must exist for python -m meshscope"
+
 
 class TestDragDropLoading:
     def test_drag_enter_accepts_stl(self, window: MainWindow) -> None:

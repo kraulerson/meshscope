@@ -51,6 +51,28 @@ class TestViewportWidgetStates:
         assert widget.state == "loading"
 
 
+class TestViewportWidgetVTKInitialization:
+    """Regression: VTK must not be initialized before widget is shown."""
+
+    def test_vtk_not_initialized_before_show(self, qapp: QApplication) -> None:
+        """VTK interactor must defer initialization until first showEvent."""
+        w = ViewportWidget()
+        assert w._vtk_initialized is False
+        w.close()
+
+    def test_vtk_initialized_after_show(self, widget: ViewportWidget) -> None:
+        """VTK interactor must be initialized after widget is shown."""
+        assert widget._vtk_initialized is True
+
+    def test_vtk_render_triggers_initialization(self, qapp: QApplication) -> None:
+        """vtk_render() must initialize VTK if not yet initialized."""
+        w = ViewportWidget()
+        assert w._vtk_initialized is False
+        w.vtk_render()
+        assert w._vtk_initialized is True
+        w.close()
+
+
 class TestViewportWidgetApiContract:
     """Regression: vtk_render not render, resizeEvent takes QResizeEvent."""
 
