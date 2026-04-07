@@ -93,6 +93,119 @@ get_latest_version() {
   esac
 }
 
+# --- Update check handlers ---
+# Data-driven update checking for tools that don't use standard version comparison.
+# Each tool can have an "update_check" field in the tool matrix with a "method" key.
+#
+# Returns via globals: UPDATE_CHECK_STATUS ("up_to_date", "behind", "self_updating", "unknown")
+#                      UPDATE_CHECK_MSG (human-readable status message)
+#                      UPDATE_CHECK_CMD (update command, if applicable)
+check_for_update() {
+  local method="$1"
+  local update_json="$2"
+  local tool_install_json="$3"
+
+  UPDATE_CHECK_STATUS="unknown"
+  UPDATE_CHECK_MSG=""
+  UPDATE_CHECK_CMD=""
+
+  case "$method" in
+    git_repo)
+      local repo_path
+      repo_path=$(echo "$update_json" | jq -r '.path // empty')
+      # Expand $HOME in path
+      repo_path=$(eval echo "$repo_path")
+
+      if [ ! -d "$repo_path/.git" ]; then
+        UPDATE_CHECK_STATUS="unknown"
+        UPDATE_CHECK_MSG="git repo not found at $repo_path"
+        return
+      fi
+
+      # Fetch latest from remote (quiet, with timeout)
+      if [ "$NETWORK_AVAILABLE" = true ]; then
+        git -C "$repo_path" fetch --quiet 2>/dev/null || true
+        local local_rev remote_rev behind_count
+        local_rev=$(git -C "$repo_path" rev-parse HEAD 2>/dev/null)
+        remote_rev=$(git -C "$repo_path" rev-parse origin/main 2>/dev/null || git -C "$repo_path" rev-parse origin/master 2>/dev/null || echo "")
+
+        if [ -z "$remote_rev" ]; then
+          UPDATE_CHECK_STATUS="unknown"
+          UPDATE_CHECK_MSG="could not determine remote branch"
+        elif [ "$local_rev" = "$remote_rev" ]; then
+          UPDATE_CHECK_STATUS="up_to_date"
+          UPDATE_CHECK_MSG="up to date"
+        else
+          behind_count=$(git -C "$repo_path" rev-list --count HEAD..origin/main 2>/dev/null || git -C "$repo_path" rev-list --count HEAD..origin/master 2>/dev/null || echo "?")
+          UPDATE_CHECK_STATUS="behind"
+          UPDATE_CHECK_MSG="$behind_count commit(s) behind"
+          UPDATE_CHECK_CMD="cd $repo_path && git pull"
+        fi
+      else
+        UPDATE_CHECK_STATUS="unknown"
+        UPDATE_CHECK_MSG="network unavailable — skipped"
+      fi
+      ;;
+
+    docker_image)
+      local container_name
+      container_name=$(echo "$update_json" | jq -r '.container // empty')
+
+      if ! command -v docker &>/dev/null; then
+        UPDATE_CHECK_STATUS="unknown"
+        UPDATE_CHECK_MSG="docker not installed"
+        return
+      fi
+
+      if ! docker inspect "$container_name" &>/dev/null 2>&1; then
+        UPDATE_CHECK_STATUS="unknown"
+        UPDATE_CHECK_MSG="container not running"
+        return
+      fi
+
+      if [ "$NETWORK_AVAILABLE" = true ]; then
+        local image_name
+        image_name=$(docker inspect --format '{{.Config.Image}}' "$container_name" 2>/dev/null || echo "")
+        if [ -n "$image_name" ]; then
+          # Pull latest digest without downloading layers
+          local local_digest remote_digest
+          local_digest=$(docker inspect --format '{{.Image}}' "$container_name" 2>/dev/null | cut -c1-20)
+          remote_digest=$(docker manifest inspect "$image_name" 2>/dev/null | jq -r '.config.digest // empty' 2>/dev/null | cut -c1-20)
+
+          if [ -n "$remote_digest" ] && [ "$local_digest" != "$remote_digest" ]; then
+            UPDATE_CHECK_STATUS="behind"
+            UPDATE_CHECK_MSG="newer image available"
+            UPDATE_CHECK_CMD="docker pull $image_name && docker restart $container_name"
+          else
+            UPDATE_CHECK_STATUS="up_to_date"
+            UPDATE_CHECK_MSG="up to date"
+          fi
+        fi
+      else
+        UPDATE_CHECK_STATUS="unknown"
+        UPDATE_CHECK_MSG="network unavailable — skipped"
+      fi
+      ;;
+
+    ephemeral)
+      local runner
+      runner=$(echo "$update_json" | jq -r '.runner // "npx"')
+      UPDATE_CHECK_STATUS="self_updating"
+      UPDATE_CHECK_MSG="auto-updates (runs via $runner)"
+      ;;
+
+    claude_plugin)
+      UPDATE_CHECK_STATUS="self_updating"
+      UPDATE_CHECK_MSG="managed by Claude Code"
+      ;;
+
+    *)
+      UPDATE_CHECK_STATUS="unknown"
+      UPDATE_CHECK_MSG="unknown update_check method: $method"
+      ;;
+  esac
+}
+
 # --- Load tool matrix ---
 MATRIX_DIR="templates/tool-matrix"
 if [ ! -d "$MATRIX_DIR" ]; then
@@ -131,6 +244,14 @@ if [ -n "$LANGUAGE" ]; then
     .languages == null or
     (.languages | index("all")) != null or
     (.languages | index($lang)) != null
+  )]')
+fi
+
+# Filter by track (skip tools that require a higher track)
+if [ -n "$TRACK" ]; then
+  ALL_TOOLS=$(echo "$ALL_TOOLS" | jq --arg track "$TRACK" '[.[] | select(
+    .tracks == null or
+    (.tracks | index($track)) != null
   )]')
 fi
 
@@ -177,6 +298,8 @@ for i in $(seq 0 $((TOOL_COUNT - 1))); do
   LATEST_METHOD=$(echo "$TOOL" | jq -r '.latest_check.method // empty')
   LATEST_PKG=$(echo "$TOOL" | jq -r '.latest_check.package // empty')
   INSTALL_OBJ=$(echo "$TOOL" | jq -r '.install // empty')
+  UC_METHOD=$(echo "$TOOL" | jq -r '.update_check.method // empty')
+  UC_JSON=$(echo "$TOOL" | jq '.update_check // empty')
 
   # Category header
   case "$CATEGORY" in
@@ -184,7 +307,7 @@ for i in $(seq 0 $((TOOL_COUNT - 1))); do
       NEW_CAT="Core Tools" ;;
     sast|secret_detection|dependency_scanning)
       NEW_CAT="Security Tools" ;;
-    ai_agent|claude_plugin|mcp_server)
+    ai_agent|claude_plugin|mcp_server|dev_framework)
       NEW_CAT="Plugins & MCP" ;;
     *)
       NEW_CAT="Project Tools" ;;
@@ -195,10 +318,15 @@ for i in $(seq 0 $((TOOL_COUNT - 1))); do
   fi
 
   # Check if installed
+  # Disable set -u: check_commands may reference env vars (e.g., $ANDROID_HOME)
+  # that are legitimately unset on this system.
+  set +u
   if ! eval "$CHECK_CMD" &>/dev/null 2>&1; then
+    set -u
     print_warn "$NAME: not installed"
     continue
   fi
+  set -u
 
   # Get installed version
   INSTALLED=""
@@ -216,56 +344,80 @@ for i in $(seq 0 $((TOOL_COUNT - 1))); do
     fi
   fi
 
-  # Check latest version
-  LATEST=""
-  LATEST_DISPLAY=""
-  if [ "$NETWORK_AVAILABLE" = true ] && [ -n "$LATEST_METHOD" ] && [ "$LATEST_METHOD" != "null" ] && [ -n "$LATEST_PKG" ]; then
-    LATEST=$(get_latest_version "$LATEST_METHOD" "$LATEST_PKG")
-  fi
+  # Check for updates — use update_check if present, otherwise fall back to latest_check
+  if [ -n "$UC_METHOD" ] && [ "$UC_METHOD" != "null" ]; then
+    # Data-driven update check
+    check_for_update "$UC_METHOD" "$UC_JSON" "$INSTALL_OBJ"
 
-  if [ -n "$LATEST" ] && [ -n "$INSTALLED" ]; then
-    if version_gte "$INSTALLED" "$LATEST"; then
-      LATEST_DISPLAY=" — up to date"
+    if [ "$MIN_MET" = false ]; then
+      print_warn "$NAME: $INSTALLED$MIN_DISPLAY — BELOW MINIMUM"
+      echo -e "         ${YELLOW}⚠ Continuing with outdated $NAME may cause issues.${NC}"
+      BELOW_MIN+=("$NAME")
+      UPDATES+=("$NAME $INSTALLED → latest (BELOW MINIMUM)")
+      UPDATE_CMDS+=("${UPDATE_CHECK_CMD:-}")
+    elif [ "$UPDATE_CHECK_STATUS" = "behind" ]; then
+      print_warn "$NAME: ${INSTALLED:-configured} — $UPDATE_CHECK_MSG"
+      UPDATES+=("$NAME — $UPDATE_CHECK_MSG")
+      UPDATE_CMDS+=("${UPDATE_CHECK_CMD:-}")
+    elif [ "$UPDATE_CHECK_STATUS" = "self_updating" ]; then
+      print_ok "$NAME: ${INSTALLED:-configured} — $UPDATE_CHECK_MSG"
+      PASS_COUNT=$((PASS_COUNT + 1))
     else
-      LATEST_DISPLAY=" — $LATEST available"
+      print_ok "$NAME: ${INSTALLED:-configured} — ${UPDATE_CHECK_MSG:-up to date}"
+      PASS_COUNT=$((PASS_COUNT + 1))
     fi
-  elif [ -n "$INSTALLED" ] && [ "$NETWORK_AVAILABLE" = false ]; then
-    LATEST_DISPLAY=""
-  elif [ -n "$INSTALLED" ]; then
-    LATEST_DISPLAY=" — up to date"
-  fi
-
-  # Output
-  if [ "$MIN_MET" = false ]; then
-    print_warn "$NAME: $INSTALLED$MIN_DISPLAY — BELOW MINIMUM$LATEST_DISPLAY"
-    echo -e "         ${YELLOW}⚠ Continuing with outdated $NAME may cause issues.${NC}"
-    BELOW_MIN+=("$NAME")
-    # Find update command
-    local_update_cmd=""
-    if command -v brew &>/dev/null; then
-      local_update_cmd=$(echo "$TOOL" | jq -r '.install.darwin_brew // empty')
-    fi
-    if [ -z "$local_update_cmd" ]; then
-      local_update_cmd=$(echo "$TOOL" | jq -r '.install.npm // .install.linux_pip // .install.manual // empty')
-    fi
-    UPDATES+=("$NAME $INSTALLED → ${LATEST:-latest} (BELOW MINIMUM)")
-    UPDATE_CMDS+=("$local_update_cmd")
-  elif [ -n "$LATEST" ] && ! version_gte "$INSTALLED" "$LATEST"; then
-    print_ok "$NAME: $INSTALLED$MIN_DISPLAY$LATEST_DISPLAY"
-    # Find update command
-    local_update_cmd=""
-    if command -v brew &>/dev/null; then
-      local_update_cmd=$(echo "$TOOL" | jq -r '.install.darwin_brew // empty')
-    fi
-    if [ -z "$local_update_cmd" ]; then
-      local_update_cmd=$(echo "$TOOL" | jq -r '.install.npm // .install.linux_pip // .install.manual // empty')
-    fi
-    UPDATES+=("$NAME $INSTALLED → $LATEST")
-    UPDATE_CMDS+=("$local_update_cmd")
-    PASS_COUNT=$((PASS_COUNT + 1))
   else
-    print_ok "$NAME: ${INSTALLED:-configured}$MIN_DISPLAY$LATEST_DISPLAY"
-    PASS_COUNT=$((PASS_COUNT + 1))
+    # Standard latest_check flow (version comparison)
+    LATEST=""
+    LATEST_DISPLAY=""
+    if [ "$NETWORK_AVAILABLE" = true ] && [ -n "$LATEST_METHOD" ] && [ "$LATEST_METHOD" != "null" ] && [ -n "$LATEST_PKG" ]; then
+      LATEST=$(get_latest_version "$LATEST_METHOD" "$LATEST_PKG")
+    fi
+
+    if [ -n "$LATEST" ] && [ -n "$INSTALLED" ]; then
+      if version_gte "$INSTALLED" "$LATEST"; then
+        LATEST_DISPLAY=" — up to date"
+      else
+        LATEST_DISPLAY=" — $LATEST available"
+      fi
+    elif [ -n "$INSTALLED" ] && [ "$NETWORK_AVAILABLE" = false ]; then
+      LATEST_DISPLAY=""
+    elif [ -n "$INSTALLED" ]; then
+      LATEST_DISPLAY=" — up to date"
+    fi
+
+    # Output
+    if [ "$MIN_MET" = false ]; then
+      print_warn "$NAME: $INSTALLED$MIN_DISPLAY — BELOW MINIMUM$LATEST_DISPLAY"
+      echo -e "         ${YELLOW}⚠ Continuing with outdated $NAME may cause issues.${NC}"
+      BELOW_MIN+=("$NAME")
+      # Find update command
+      local_update_cmd=""
+      if command -v brew &>/dev/null; then
+        local_update_cmd=$(echo "$TOOL" | jq -r '.install.darwin_brew // empty')
+      fi
+      if [ -z "$local_update_cmd" ]; then
+        local_update_cmd=$(echo "$TOOL" | jq -r '.install.npm // .install.linux_pip // .install.manual // empty')
+      fi
+      UPDATES+=("$NAME $INSTALLED → ${LATEST:-latest} (BELOW MINIMUM)")
+      UPDATE_CMDS+=("$local_update_cmd")
+    elif [ -n "$LATEST" ] && ! version_gte "$INSTALLED" "$LATEST"; then
+      print_ok "$NAME: $INSTALLED$MIN_DISPLAY$LATEST_DISPLAY"
+      # Find update command
+      local_update_cmd=""
+      if command -v brew &>/dev/null; then
+        local_update_cmd=$(echo "$TOOL" | jq -r '.install.darwin_brew // empty')
+      fi
+      if [ -z "$local_update_cmd" ]; then
+        local_update_cmd=$(echo "$TOOL" | jq -r '.install.npm // .install.linux_pip // .install.manual // empty')
+      fi
+      UPDATES+=("$NAME $INSTALLED → $LATEST")
+      UPDATE_CMDS+=("$local_update_cmd")
+      PASS_COUNT=$((PASS_COUNT + 1))
+    else
+      print_ok "$NAME: ${INSTALLED:-configured}$MIN_DISPLAY$LATEST_DISPLAY"
+      PASS_COUNT=$((PASS_COUNT + 1))
+    fi
   fi
 done
 
