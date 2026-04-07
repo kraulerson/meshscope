@@ -198,6 +198,9 @@ class MainWindow(QMainWindow):
         self._set_render_actions_enabled(True)
 
     def _set_state_error(self, message: str) -> None:
+        self._document = None
+        self._viewport.scene_manager.clear()
+        self._viewport.vtk_render()
         self.statusBar().showMessage(message)
         self._viewport.show_error(message)
         self._set_render_actions_enabled(False)

@@ -79,6 +79,14 @@ class TestFileLoadingErrors:
         assert window.viewport.state == "error"
         assert not window.wireframe_action.isEnabled()
 
+    def test_error_after_success_clears_mesh(self, window: MainWindow) -> None:
+        """Previous mesh must be cleared from viewport when load fails."""
+        window._load_file(VALID / "cube.stl")
+        assert window.viewport.scene_manager.has_mesh is True
+        window._load_file(INVALID / "corrupt.stl")
+        assert window.viewport.scene_manager.has_mesh is False
+        assert window.document is None
+
 
 class TestCLIArgument:
     def test_file_path_loaded_on_construction(self, qapp: QApplication) -> None:
