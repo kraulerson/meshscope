@@ -9,6 +9,7 @@ import numpy as np
 from meshscope.core.exceptions import MeshExportError
 from meshscope.core.mesh_data import BoundingBox, MeshData, MeshMetadata
 from meshscope.core.mesh_exporter import check_symlink, export_mesh, get_format_warning
+from meshscope.core.mesh_loader import load_mesh
 
 
 class TestMeshExportError:
@@ -153,3 +154,36 @@ class TestGetFormatWarning:
 
     def test_ply_has_no_warning(self) -> None:
         assert get_format_warning("ply") is None
+
+
+class TestExportRoundTrip:
+    """Load a fixture, export to each format, reload, verify geometry preserved."""
+
+    def test_roundtrip_stl(self, tmp_path: Path) -> None:
+        doc = load_mesh(Path("tests/fixtures/valid/cube.stl"))
+        out = tmp_path / "cube_export.stl"
+        export_mesh(doc.mesh, out, "stl")
+        reloaded = load_mesh(out)
+        assert reloaded.mesh.metadata.vertex_count == doc.mesh.metadata.vertex_count
+        assert reloaded.mesh.metadata.face_count == doc.mesh.metadata.face_count
+
+    def test_roundtrip_obj(self, tmp_path: Path) -> None:
+        doc = load_mesh(Path("tests/fixtures/valid/cube.stl"))
+        out = tmp_path / "cube_export.obj"
+        export_mesh(doc.mesh, out, "obj")
+        reloaded = load_mesh(out)
+        assert reloaded.mesh.metadata.face_count == doc.mesh.metadata.face_count
+
+    def test_roundtrip_ply(self, tmp_path: Path) -> None:
+        doc = load_mesh(Path("tests/fixtures/valid/cube.stl"))
+        out = tmp_path / "cube_export.ply"
+        export_mesh(doc.mesh, out, "ply")
+        reloaded = load_mesh(out)
+        assert reloaded.mesh.metadata.face_count == doc.mesh.metadata.face_count
+
+    def test_roundtrip_3mf(self, tmp_path: Path) -> None:
+        doc = load_mesh(Path("tests/fixtures/valid/cube.stl"))
+        out = tmp_path / "cube_export.3mf"
+        export_mesh(doc.mesh, out, "3mf")
+        reloaded = load_mesh(out)
+        assert reloaded.mesh.metadata.face_count == doc.mesh.metadata.face_count
