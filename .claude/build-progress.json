@@ -1,13 +1,14 @@
 {
   "features_completed": [
     "file-loading",
-    "3d-viewport"
+    "3d-viewport",
+    "mesh-info-panel"
   ],
-  "features_since_last_test": 2,
+  "features_since_last_test": 1,
   "test_interval": 2,
-  "last_test_session": null,
-  "testing_required": true,
+  "last_test_session": "2026-04-07",
+  "testing_required": false,
   "tester_count": 1,
   "bug_tracker": "github_issues",
-  "sessions_completed": 0
+  "sessions_completed": 1
 }

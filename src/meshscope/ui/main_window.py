@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
 
 from meshscope.core.exceptions import MeshLoadError
 from meshscope.core.mesh_loader import load_mesh
+from meshscope.ui.info_panel import InfoPanel
 from meshscope.ui.viewport_widget import ViewportWidget
 from meshscope.vtk_adapter.mesh_adapter import mesh_data_to_polydata
 
@@ -48,6 +49,10 @@ class MainWindow(QMainWindow):
         # Viewport (central widget)
         self._viewport = ViewportWidget(self)
         self.setCentralWidget(self._viewport)
+
+        # Info panel (dock widget, left)
+        self._info_panel = InfoPanel(self)
+        self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self._info_panel)
 
         # Actions
         self._create_actions()
@@ -121,6 +126,10 @@ class MainWindow(QMainWindow):
         view_menu.addAction(self.shading_action)
         view_menu.addSeparator()
         view_menu.addAction(self.fit_action)
+        view_menu.addSeparator()
+        info_toggle = self._info_panel.toggleViewAction()
+        info_toggle.setShortcut(QKeySequence("I"))
+        view_menu.addAction(info_toggle)
 
         help_menu = self.menuBar().addMenu("&Help")
         about_action = QAction("About", self)
@@ -171,6 +180,7 @@ class MainWindow(QMainWindow):
             self._is_loading = False
 
         self._document = doc
+        self._info_panel.set_document(doc)
 
         polydata = mesh_data_to_polydata(doc.mesh)
         self._viewport.scene_manager.display_mesh(polydata)
@@ -199,6 +209,7 @@ class MainWindow(QMainWindow):
 
     def _set_state_error(self, message: str) -> None:
         self._document = None
+        self._info_panel.clear()
         self._viewport.scene_manager.clear()
         self._viewport.vtk_render()
         self.statusBar().showMessage(message)
