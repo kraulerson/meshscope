@@ -43,3 +43,11 @@ class CorruptFileError(MeshParseError):
 
 class EmptyMeshError(MeshParseError):
     """File parsed successfully but contains no geometry."""
+
+
+class MeshExportError(Exception):
+    """Base exception for all mesh export failures."""
+
+    def __init__(self, user_message: str) -> None:
+        self.user_message = user_message
+        super().__init__(user_message)
