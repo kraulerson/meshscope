@@ -132,12 +132,25 @@ class SceneManager:
         return self._highlights_visible
 
     def show_print_bed(self, x: int, y: int, z: int, bbox: BoundingBox) -> str | None:
-        """Show print bed volume overlay. Returns overflow text or None."""
+        """Show print bed volume overlay. Returns overflow text or None.
+
+        Positions the bed so the model sits on the bed floor with the
+        bed centered under the model in X/Y.
+        """
         self.hide_print_bed()
         actors = self._print_bed_manager.create_actors(x, y, z)
         overflow_actors = self._print_bed_manager.create_overflow_actors(x, y, z, bbox)
         self._print_bed_actors = actors + overflow_actors
+
+        # Position bed so model sits on floor, centered in X/Y
+        model_center_x = (bbox.min_x + bbox.max_x) / 2
+        model_center_y = (bbox.min_y + bbox.max_y) / 2
+        offset_x = model_center_x - x / 2
+        offset_y = model_center_y - y / 2
+        offset_z = bbox.min_z
+
         for actor in self._print_bed_actors:
+            actor.SetPosition(offset_x, offset_y, offset_z)
             self._renderer.AddActor(actor)
         self._print_bed_visible = True
         return get_overflow_text(x, y, z, bbox)
