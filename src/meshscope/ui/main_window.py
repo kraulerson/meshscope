@@ -9,19 +9,26 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction, QDragEnterEvent, QDropEvent, QKeySequence
 from PySide6.QtWidgets import (
+    QComboBox,
+    QDialog,
+    QDialogButtonBox,
     QFileDialog,
+    QFormLayout,
     QMainWindow,
     QMessageBox,
+    QSpinBox,
     QStatusBar,
     QToolBar,
 )
 
+from meshscope.core.config import load_config, save_config
 from meshscope.core.exceptions import MeshExportError, MeshLoadError
 from meshscope.core.mesh_exporter import check_symlink, export_mesh, get_format_warning
 from meshscope.core.mesh_loader import load_mesh
 from meshscope.ui.info_panel import InfoPanel
 from meshscope.ui.viewport_widget import ViewportWidget
 from meshscope.vtk_adapter.mesh_adapter import mesh_data_to_polydata
+from meshscope.vtk_adapter.print_bed import PRINTER_PRESETS
 
 if TYPE_CHECKING:
     from meshscope.core.mesh_document import MeshDocument
@@ -66,6 +73,9 @@ class MainWindow(QMainWindow):
         # Info panel (dock widget, left)
         self._info_panel = InfoPanel(self)
         self.addDockWidget(Qt.DockWidgetArea.LeftDockWidgetArea, self._info_panel)
+
+        # Config
+        self._config = load_config()
 
         # Actions
         self._create_actions()
@@ -132,6 +142,13 @@ class MainWindow(QMainWindow):
         self.export_action.setToolTip("Export mesh to another format")
         self.export_action.triggered.connect(self._on_export)
 
+        self.bed_action = QAction("Bed", self)
+        self.bed_action.setShortcut(QKeySequence("P"))
+        self.bed_action.setCheckable(True)
+        self.bed_action.setEnabled(False)
+        self.bed_action.setToolTip("Toggle print bed volume overlay")
+        self.bed_action.toggled.connect(self._on_bed_toggled)
+
     # --- Menus ---
 
     def _create_menus(self) -> None:
@@ -150,6 +167,9 @@ class MainWindow(QMainWindow):
         info_toggle = self._info_panel.toggleViewAction()
         info_toggle.setShortcut(QKeySequence("I"))
         view_menu.addAction(info_toggle)
+
+        view_menu.addSeparator()
+        view_menu.addAction(self.bed_action)
 
         help_menu = self.menuBar().addMenu("&Help")
         about_action = QAction("About", self)
@@ -172,6 +192,23 @@ class MainWindow(QMainWindow):
         self.toolbar.addAction(self.wireframe_action)
         self.toolbar.addAction(self.shading_action)
         self.toolbar.addAction(self.fit_action)
+
+        self.toolbar.addSeparator()
+        self.toolbar.addAction(self.bed_action)
+
+        self.bed_preset_combo = QComboBox()
+        self.bed_preset_combo.setAccessibleName("Print bed preset")
+        self.bed_preset_combo.setEnabled(False)
+        for key, preset in PRINTER_PRESETS.items():
+            self.bed_preset_combo.addItem(preset["name"], key)
+        self.bed_preset_combo.addItem("Custom...", "custom")
+        saved_preset = self._config.get("print_bed", "preset")
+        for i in range(self.bed_preset_combo.count()):
+            if self.bed_preset_combo.itemData(i) == saved_preset:
+                self.bed_preset_combo.setCurrentIndex(i)
+                break
+        self.bed_preset_combo.currentIndexChanged.connect(self._on_bed_preset_changed)
+        self.toolbar.addWidget(self.bed_preset_combo)
 
     # --- File loading ---
 
@@ -213,6 +250,10 @@ class MainWindow(QMainWindow):
         for warning in doc.warnings:
             logger.warning("Load warning: %s", warning)
 
+        # Refresh print bed if visible
+        if self.bed_action.isChecked():
+            self._on_bed_toggled(True)
+
     # --- State management ---
 
     def _set_state_loading(self, filename: str) -> None:
@@ -242,6 +283,10 @@ class MainWindow(QMainWindow):
         self.shading_action.setEnabled(enabled)
         self.fit_action.setEnabled(enabled)
         self.export_action.setEnabled(enabled)
+        self.bed_action.setEnabled(enabled)
+        self.bed_preset_combo.setEnabled(enabled)
+        if not enabled:
+            self.bed_action.setChecked(False)
 
     # --- Toolbar callbacks ---
 
@@ -335,6 +380,107 @@ class MainWindow(QMainWindow):
         except MeshExportError as e:
             QMessageBox.critical(self, "Export Error", e.user_message)
             logger.error("Export failed: %s", e.user_message)
+
+    # --- Print bed ---
+
+    def _on_bed_toggled(self, checked: bool) -> None:
+        if checked and self._document is not None:
+            dims = self._get_bed_dimensions()
+            bbox = self._document.mesh.metadata.bounding_box
+            overflow = self._viewport.scene_manager.show_print_bed(
+                dims[0], dims[1], dims[2], bbox
+            )
+            if overflow:
+                self.statusBar().showMessage(overflow)
+            self._viewport.vtk_render()
+        else:
+            self._viewport.scene_manager.hide_print_bed()
+            self._viewport.vtk_render()
+            if self._document is not None:
+                self.statusBar().showMessage(
+                    f"{Path(self._document.source_path).name} — "
+                    f"{self._document.mesh.metadata.face_count:,} faces"
+                )
+
+    def _on_bed_preset_changed(self, index: int) -> None:
+        key = self.bed_preset_combo.itemData(index)
+        if key == "custom":
+            if not self._show_custom_bed_dialog():
+                saved = self._config.get("print_bed", "preset")
+                for i in range(self.bed_preset_combo.count()):
+                    if self.bed_preset_combo.itemData(i) == saved:
+                        self.bed_preset_combo.blockSignals(True)
+                        self.bed_preset_combo.setCurrentIndex(i)
+                        self.bed_preset_combo.blockSignals(False)
+                        break
+                return
+            key = "custom"
+        self._config.set("print_bed", "preset", key)
+        save_config(self._config)
+        if self.bed_action.isChecked():
+            self._on_bed_toggled(True)
+
+    def _get_bed_dimensions(self) -> tuple[int, int, int]:
+        key = self.bed_preset_combo.itemData(self.bed_preset_combo.currentIndex())
+        if key == "custom":
+            return (
+                self._config.get("print_bed", "custom_x"),
+                self._config.get("print_bed", "custom_y"),
+                self._config.get("print_bed", "custom_z"),
+            )
+        preset = PRINTER_PRESETS.get(key, PRINTER_PRESETS["ender_3"])
+        return (preset["x"], preset["y"], preset["z"])
+
+    def _show_custom_bed_dialog(self) -> bool:
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Custom Print Volume")
+        layout = QFormLayout(dialog)
+
+        x_spin = QSpinBox()
+        x_spin.setRange(1, 2000)
+        x_spin.setSuffix(" mm")
+        x_spin.setValue(self._config.get("print_bed", "custom_x"))
+        x_spin.setAccessibleName("Bed width X in millimeters")
+
+        y_spin = QSpinBox()
+        y_spin.setRange(1, 2000)
+        y_spin.setSuffix(" mm")
+        y_spin.setValue(self._config.get("print_bed", "custom_y"))
+        y_spin.setAccessibleName("Bed depth Y in millimeters")
+
+        z_spin = QSpinBox()
+        z_spin.setRange(1, 2000)
+        z_spin.setSuffix(" mm")
+        z_spin.setValue(self._config.get("print_bed", "custom_z"))
+        z_spin.setAccessibleName("Bed height Z in millimeters")
+
+        layout.addRow("Width (X):", x_spin)
+        layout.addRow("Depth (Y):", y_spin)
+        layout.addRow("Height (Z):", z_spin)
+
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        layout.addRow(buttons)
+
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return False
+
+        x_val, y_val, z_val = x_spin.value(), y_spin.value(), z_spin.value()
+        if x_val > 1000 or y_val > 1000 or z_val > 1000:
+            QMessageBox.warning(
+                self,
+                "Large Dimensions",
+                "Bed size exceeds 1000mm. Verify dimensions are in millimeters.",
+            )
+        self._config.set("print_bed", "custom_x", x_val)
+        self._config.set("print_bed", "custom_y", y_val)
+        self._config.set("print_bed", "custom_z", z_val)
+        self._config.set("print_bed", "preset", "custom")
+        save_config(self._config)
+        return True
 
     # --- Drag and drop ---
 
