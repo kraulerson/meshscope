@@ -15,6 +15,37 @@ This project follows the **Solo Orchestrator Framework v1.0**.
 - Approval Log: `APPROVAL_LOG.md` (governance approval tracking — update at each phase gate)
 - Claude Dev Framework: `.claude/framework/` (Git hook guardrails — see `.claude/manifest.json` for active profile and configuration)
 
+## Engineering Principles
+
+### Priority Hierarchy
+When making any decision — architecture, design, implementation, tooling, or trade-offs — prioritize in this order:
+
+1. **Security** — Never introduce vulnerabilities. Never weaken existing protections.
+2. **Correctness** — Code must do what it claims. Edge cases must be handled.
+3. **Stability** — Reliable under load, failure, and unexpected input. No fragile patterns.
+4. **Performance** — Efficient by default. No premature optimization, but no negligent waste.
+5. **Usability** — Clear interfaces, meaningful errors, intuitive behavior.
+6. **Speed of development** — Move fast only after 1-5 are satisfied.
+
+Never trade a higher-priority attribute for a lower one. If a faster approach is less secure, choose the secure approach. If a simpler implementation is less correct, choose the correct one.
+
+### Best Practices Over Shortcuts
+- Follow established best practices for the language, framework, and platform. Use idiomatic patterns, not clever workarounds.
+- Use proper architectural patterns (separation of concerns, n-tier structure, dependency injection where appropriate). Do not collapse layers for convenience.
+- When multiple approaches exist within best practices, **present the options to the Orchestrator** with the trade-offs of each (performance, complexity, maintainability, scalability) and let them decide. Do not silently choose the fastest path.
+- Prefer well-tested, well-documented patterns over novel approaches. The goal is a production application that can be maintained, not a showcase of techniques.
+- When the AI-suggested approach and the established best practice conflict, follow the best practice and explain why.
+
+## Artifact Locations
+- **Features:** `FEATURES.md` — living index of all features built during Phase 2
+- **Changelog:** `CHANGELOG.md` — 8-category changelog (Security, Data Model, Added, Changed, Fixed, Removed, Infrastructure, Documentation)
+- **Bugs:** `BUGS.md` — bug tracker with severity/status parsed by `scripts/test-gate.sh`
+- **ADRs:** `docs/ADR documentation/` — Architecture Decision Records
+- **Interfaces:** `docs/api and interfaces/` — public API surface documentation
+- **Snapshots:** `docs/snapshots/` — phase gate audit trail snapshots
+- **Design Specs:** `docs/superpowers/specs/` — feature design specifications
+- **Implementation Plans:** `docs/superpowers/plans/` — feature implementation plans
+
 ## Operating Instructions
 You are the AI coding agent for this Solo Orchestrator project. The human is the Orchestrator — they define intent, constraints, and validation. You provide syntax, scaffolding, and pattern execution.
 
@@ -51,7 +82,18 @@ At the start of every new session, before any other work:
 - **Pin dependencies:** Exact versions only. Commit the lockfile.
 - **Structured logging:** Every significant operation produces a log entry with timestamp, severity, and correlation ID.
 - **No direct data model changes:** All changes go through versioned migrations.
-- **Document as you go:** Update CHANGELOG.md, API docs, and the Project Bible after every feature.
+- **Document as you go:** Update CHANGELOG.md (8 categories: Security, Data Model, Added, Changed, Fixed, Removed, Infrastructure, Documentation), FEATURES.md, docs in `docs/api and interfaces/`, and the Project Bible after every feature. For non-trivial decisions, create an ADR in `docs/ADR documentation/` using the template.
+- **Context Health Check:** Every 3-4 features, summarize features built, features remaining, current data model, and known issues. Verify against PROJECT_BIBLE.md. If the summary contradicts the Bible, start a fresh session.
+- **Process enforcement:** Before starting each feature, run:
+  `scripts/process-checklist.sh --start-feature "feature-name"`
+  After completing each Build Loop step, mark it:
+  - Tests written: `scripts/process-checklist.sh --complete-step build_loop:tests_written`
+  - Tests verified failing: `scripts/process-checklist.sh --complete-step build_loop:tests_verified_failing`
+  - Implementation complete: `scripts/process-checklist.sh --complete-step build_loop:implemented`
+  - Security audit done: `scripts/process-checklist.sh --complete-step build_loop:security_audit`
+  - Documentation updated: `scripts/process-checklist.sh --complete-step build_loop:documentation_updated`
+  - Feature recorded: `scripts/process-checklist.sh --complete-step build_loop:feature_recorded`
+  **Commits are blocked until all steps are completed in order.**
 
 ### Superpowers Integration (if installed)
 - Use Superpowers' brainstorming for **implementation-level design decisions within a feature** only.
@@ -110,14 +152,53 @@ At specific phases, adopt specialized personas for higher-quality output. Each p
 - **Bug tracker:** Configured in Intake Section 11.5
 - **Process:** After every 2 features, stop construction and run a UAT session:
   1. Check the gate: `scripts/test-gate.sh --check-batch`
+  1a. Start the UAT checklist: `scripts/process-checklist.sh --start-uat N` (where N is the session number)
   2. If blocked: dispatch parallel test agents (automated suite, exploratory, cross-platform)
-  3. Generate test template for human tester(s) and wait for results
+  3. Generate test template using `templates/uat/templates/test-session-template.html` for interactive HTML test sessions. Naming: `test-session-N-v1.html`. Increment version on re-test (v2, v3). Never overwrite previous versions.
   4. Verify submission completeness — list incomplete scenarios, ask to continue or finish
-  5. Consolidate all results into bug tracker
+  5. Consolidate all results into `BUGS.md` bug tracker
   6. Triage with Orchestrator (Fix Now / Defer / Won't Fix / Post-MVP)
   7. Fix all "Fix Now" bugs test-first
   8. Re-test until gate passes: `scripts/test-gate.sh --check-batch`
   9. Reset counter: `scripts/test-gate.sh --reset-counter`
+  After completing each UAT step, mark it with:
+  `scripts/process-checklist.sh --complete-step uat_session:STEP_ID`
+  Steps in order: agents_dispatched, template_generated, orchestrator_notified, results_received,
+  completeness_verified, bugs_consolidated, triage_complete, remediation_complete, gate_passed.
+  **Bug fix commits are blocked until the full UAT checklist is complete.**
 - **After each feature:** `scripts/test-gate.sh --record-feature "feature-name"`
 - **Gate enforcement:** Do NOT start the next feature until test-gate.sh --check-batch returns 0.
 - **Severity rules:** SEV-1 cannot be deferred. SEV-2 can be deferred during Phase 2 but must be resolved or feature removed at Phase 2→3 gate.
+
+### Phase 2 Completion Checkpoint
+Before moving to Phase 3, verify:
+- All MVP Cutline features built and passing tests
+- Full test suite passes, CI pipeline green
+- PROJECT_BIBLE.md accurately reflects current codebase (check `<!-- Last Updated -->` markers)
+- CHANGELOG.md and FEATURES.md current
+- No unresolved security findings
+- All UAT sessions completed, no open SEV-1/2 bugs
+- Application builds on all target platforms
+
+### Phase 3-4 Documentation
+- **Phase 3:** Generate USER_GUIDE.md, run all security scans, archive results in `docs/test-results/` (naming: `[date]_[scan-type]_[pass|fail].[ext]`), generate sbom.json at project root. For desktop projects, create SECURITY.md.
+- **Phase 4:** Generate docs/INCIDENT_RESPONSE.md (use template: `templates/generated/incident-response.tmpl`), RELEASE_NOTES.md (use template), HANDOFF.md (use template). Test the rollback procedure before production launch. Complete go-live verification checklist.
+- **Phase 3 enforcement:** Run `scripts/process-checklist.sh --start-phase3` at the beginning of Phase 3.
+  Mark each validation step: `scripts/process-checklist.sh --complete-step phase3_validation:STEP_ID`
+  Steps: integration_testing, security_hardening, chaos_testing, accessibility_audit, performance_audit, contract_testing, results_archived.
+- **Phase 4 enforcement:** Run `scripts/process-checklist.sh --start-phase4` at the beginning of Phase 4.
+  Mark each release step: `scripts/process-checklist.sh --complete-step phase4_release:STEP_ID`
+  Steps: production_build, rollback_tested, go_live_verified, monitoring_configured, handoff_written.
+  **The rollback_tested step must be completed before go_live_verified can be marked.**
+
+### Qdrant Persistent Memory (if configured)
+If the Qdrant MCP server is available (`qdrant-store` and `qdrant-find` tools), use it to persist and retrieve project knowledge across sessions. Store entries at these specific points:
+- **Architecture decisions** — after finalizing a decision in the Project Bible, store the decision and its rationale
+- **Debugging breakthroughs** — after resolving a non-obvious bug, store the root cause and fix
+- **Phase gate transitions** — store a summary of what was accomplished and key lessons from the phase
+- **Trade-off discussions** — when the Orchestrator makes a significant trade-off decision, store the context and reasoning
+- **Integration patterns** — after establishing how components connect, store the pattern for future reference
+
+At the start of each session, use `qdrant-find` to retrieve relevant context for the current work area before diving in.
+
+Do NOT store: routine code changes, test results, obvious patterns, or anything already captured in the Project Bible or CHANGELOG.
