@@ -625,3 +625,26 @@ class TestUAT4Regressions:
         # Cube is 0-10mm, center is 5. Ender 3 is 220mm.
         # offset_x = 5 - 110 = -105, offset_y = 5 - 110 = -105, offset_z = 0
         assert pos[2] == 0.0, "Bed floor should be at model's min_z"
+
+    def test_axis_button_has_checked_stylesheet(self, window: MainWindow) -> None:
+        """UAT4-030: Axis buttons must have visible checked-state styling."""
+        from meshscope.core.mesh_data import BoundingBox
+        from meshscope.ui.transform_dialog import TransformDialog
+
+        bb = BoundingBox(0, 0, 0, 10, 10, 10)
+        dialog = TransformDialog(bb, parent=window)
+        btn = dialog._rotate_axis_buttons["X"]
+        style = btn.styleSheet()
+        assert "checked" in style, "Axis button must have checked-state stylesheet"
+
+    def test_print_bed_has_axis_indicators(self, window: MainWindow) -> None:
+        """UAT4-018: Print bed must include axis arrow actors."""
+        fixtures = Path(__file__).parent.parent / "fixtures" / "valid"
+        window._load_file(fixtures / "cube.stl")
+        window.bed_action.setChecked(True)
+
+        actors = window._viewport.scene_manager._print_bed_actors
+        # Should have grid + wireframe + 6 axis actors (3 arrows + 3 labels)
+        assert len(actors) >= 8, (
+            f"Expected at least 8 bed actors (grid + box + 6 axis), got {len(actors)}"
+        )

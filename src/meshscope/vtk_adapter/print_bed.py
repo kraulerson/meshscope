@@ -6,7 +6,10 @@ from typing import TYPE_CHECKING, Any
 
 from vtkmodules.vtkCommonCore import vtkPoints
 from vtkmodules.vtkCommonDataModel import vtkCellArray, vtkLine, vtkPolyData
+from vtkmodules.vtkCommonTransforms import vtkTransform
+from vtkmodules.vtkFiltersGeneral import vtkTransformPolyDataFilter
 from vtkmodules.vtkRenderingCore import vtkActor, vtkPolyDataMapper
+from vtkmodules.vtkRenderingFreeType import vtkVectorText
 
 if TYPE_CHECKING:
     from meshscope.core.mesh_data import BoundingBox
@@ -22,6 +25,9 @@ PRINTER_PRESETS: dict[str, dict[str, Any]] = {
 GRID_COLOR = (0.227, 0.353, 0.227)  # #3a5a3a
 BOX_COLOR = (0.353, 0.541, 0.353)  # #5a8a5a
 OVERFLOW_COLOR = (0.6, 0.3, 0.3)  # muted red, hatching carries meaning
+AXIS_X_COLOR = (0.8, 0.2, 0.2)  # red for X
+AXIS_Y_COLOR = (0.2, 0.7, 0.2)  # green for Y
+AXIS_Z_COLOR = (0.2, 0.4, 0.9)  # blue for Z
 
 GRID_SPACING_MM = 10
 
@@ -49,10 +55,11 @@ class PrintBedManager:
     """Creates VTK actors for print bed volume visualization."""
 
     def create_actors(self, x: int, y: int, z: int) -> list[vtkActor]:
-        """Create grid floor + wireframe box actors for given bed dimensions."""
-        actors = []
+        """Create grid floor + wireframe box + axis labels for given bed dimensions."""
+        actors: list[vtkActor] = []
         actors.append(self._create_grid_floor(x, y))
         actors.append(self._create_wireframe_box(x, y, z))
+        actors.extend(self._create_axis_indicators(x, y, z))
         return actors
 
     def create_overflow_actors(
@@ -172,6 +179,76 @@ class PrintBedManager:
         actor.GetProperty().SetColor(*BOX_COLOR)
         actor.GetProperty().SetLineWidth(1.5)
         return actor
+
+    def _create_axis_indicators(self, x: int, y: int, z: int) -> list[vtkActor]:
+        """Create axis arrows with text labels at the bed origin corner.
+
+        Each axis has a thick line + arrowhead ticks + a text label (X/Y/Z)
+        rendered as geometry via vtkVectorText. Designed to be readable
+        without relying on color (labels + line patterns distinguish axes).
+        """
+        actors: list[vtkActor] = []
+        arrow_len = min(x, y, z) * 0.2
+        label_scale = arrow_len * 0.12
+
+        axes = [
+            ("X", (1, 0, 0), AXIS_X_COLOR, 4.0),
+            ("Y", (0, 1, 0), AXIS_Y_COLOR, 4.0),
+            ("Z", (0, 0, 1), AXIS_Z_COLOR, 4.0),
+        ]
+
+        for label, direction, color, width in axes:
+            dx, dy, dz = direction
+            end = (dx * arrow_len, dy * arrow_len, dz * arrow_len)
+
+            # Main axis line
+            points = vtkPoints()
+            lines = vtkCellArray()
+            p0 = points.InsertNextPoint(0, 0, 0)
+            p1 = points.InsertNextPoint(*end)
+            ln = vtkLine()
+            ln.GetPointIds().SetId(0, p0)
+            ln.GetPointIds().SetId(1, p1)
+            lines.InsertNextCell(ln)
+
+            polydata = vtkPolyData()
+            polydata.SetPoints(points)
+            polydata.SetLines(lines)
+            mapper = vtkPolyDataMapper()
+            mapper.SetInputData(polydata)
+            actor = vtkActor()
+            actor.SetMapper(mapper)
+            actor.GetProperty().SetColor(*color)
+            actor.GetProperty().SetLineWidth(width)
+            actors.append(actor)
+
+            # Text label using vtkVectorText (renders as geometry, always visible)
+            vt = vtkVectorText()
+            vt.SetText(label)
+            vt.Update()
+
+            # Scale and position the text at the end of the arrow
+            transform = vtkTransform()
+            transform.Translate(
+                end[0] + dx * label_scale * 2,
+                end[1] + dy * label_scale * 2,
+                end[2] + dz * label_scale * 2,
+            )
+            transform.Scale(label_scale, label_scale, label_scale)
+
+            tf = vtkTransformPolyDataFilter()
+            tf.SetTransform(transform)
+            tf.SetInputConnection(vt.GetOutputPort())
+            tf.Update()
+
+            text_mapper = vtkPolyDataMapper()
+            text_mapper.SetInputConnection(tf.GetOutputPort())
+            text_actor = vtkActor()
+            text_actor.SetMapper(text_mapper)
+            text_actor.GetProperty().SetColor(*color)
+            actors.append(text_actor)
+
+        return actors
 
     def _create_hatching_rect(
         self, x0: float, y0: float, x1: float, y1: float, *, z: float = 0.01

@@ -17,6 +17,21 @@ from PySide6.QtWidgets import (
 
 from meshscope.core.mesh_data import BoundingBox
 
+# Stylesheet for axis toggle buttons — checked state must be visually obvious
+_AXIS_BUTTON_STYLE = """
+    QPushButton {
+        padding: 6px 14px;
+        border: 1px solid palette(mid);
+        border-radius: 4px;
+    }
+    QPushButton:checked {
+        background-color: palette(highlight);
+        color: palette(highlighted-text);
+        font-weight: bold;
+        border-color: palette(highlight);
+    }
+"""
+
 
 class TransformDialog(QDialog):
     """Tabbed dialog for Scale, Rotate, and Mirror transforms."""
@@ -121,6 +136,7 @@ class TransformDialog(QDialog):
         for axis, label in axis_labels.items():
             btn = QPushButton(label)
             btn.setCheckable(True)
+            btn.setStyleSheet(_AXIS_BUTTON_STYLE)
             btn.setAccessibleName(f"Rotate axis {axis}")
             self._rotate_axis_group.addButton(btn)
             self._rotate_axis_buttons[axis] = btn
@@ -167,6 +183,7 @@ class TransformDialog(QDialog):
         for axis, label in labels.items():
             btn = QPushButton(label)
             btn.setCheckable(True)
+            btn.setStyleSheet(_AXIS_BUTTON_STYLE)
             btn.setAccessibleName(f"Mirror axis {axis}")
             self._mirror_axis_group.addButton(btn)
             self._mirror_axis_buttons[axis] = btn
