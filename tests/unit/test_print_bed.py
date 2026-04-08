@@ -107,3 +107,16 @@ class TestOverflowActors:
         bbox = BoundingBox(0, 0, 0, 300, 300, 400)
         actors = mgr.create_overflow_actors(220, 220, 250, bbox)
         assert len(actors) > 0
+
+    def test_z_overflow_creates_ceiling_hatching(self) -> None:
+        mgr = PrintBedManager()
+        bbox = BoundingBox(0, 0, 0, 100, 100, 400)  # only Z overflows
+        actors = mgr.create_overflow_actors(220, 220, 250, bbox)
+        assert len(actors) >= 1  # ceiling hatching actor
+
+    def test_no_z_hatching_when_z_fits(self) -> None:
+        mgr = PrintBedManager()
+        bbox = BoundingBox(0, 0, 0, 300, 100, 100)  # only X overflows
+        actors = mgr.create_overflow_actors(220, 220, 250, bbox)
+        # Should have X floor hatching but no Z ceiling hatching
+        assert len(actors) == 1

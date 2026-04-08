@@ -58,22 +58,26 @@ class PrintBedManager:
     def create_overflow_actors(
         self, bed_x: int, bed_y: int, bed_z: int, bbox: BoundingBox
     ) -> list[vtkActor]:
-        """Create diagonal hatching actors for overflow regions on the floor."""
+        """Create diagonal hatching actors for overflow regions."""
         actors = []
         dx = bbox.size_x - bed_x
         dy = bbox.size_y - bed_y
+        dz = bbox.size_z - bed_z
 
-        # Only create floor hatching for X/Y overflow (Z overflow is text-only)
+        # Floor hatching for X/Y overflow
         if dx > 0.01:
-            # Hatching on +X side of bed
             actors.append(self._create_hatching_rect(bed_x, 0, bed_x + dx, bed_y))
         if dy > 0.01:
-            # Hatching on +Y side of bed
             actors.append(self._create_hatching_rect(0, bed_y, bed_x, bed_y + dy))
         if dx > 0.01 and dy > 0.01:
-            # Corner hatching
             actors.append(
                 self._create_hatching_rect(bed_x, bed_y, bed_x + dx, bed_y + dy)
+            )
+
+        # Ceiling hatching for Z overflow
+        if dz > 0.01:
+            actors.append(
+                self._create_hatching_rect(0, 0, bed_x, bed_y, z=float(bed_z))
             )
         return actors
 
@@ -170,9 +174,9 @@ class PrintBedManager:
         return actor
 
     def _create_hatching_rect(
-        self, x0: float, y0: float, x1: float, y1: float
+        self, x0: float, y0: float, x1: float, y1: float, *, z: float = 0.01
     ) -> vtkActor:
-        """Create diagonal hatching lines in a rectangle on the Z=0 plane."""
+        """Create diagonal hatching lines in a rectangle at the given Z height."""
         points = vtkPoints()
         lines = vtkCellArray()
         spacing = GRID_SPACING_MM
@@ -182,8 +186,6 @@ class PrintBedManager:
 
         offset = spacing
         while offset < diag:
-            # Diagonal line from bottom-left to top-right direction
-            # Clip to rectangle bounds
             if offset <= width:
                 sx = x0 + offset
                 sy = y0
@@ -198,8 +200,8 @@ class PrintBedManager:
                 ex = x0 + (offset - height)
                 ey = y1
 
-            p0 = points.InsertNextPoint(sx, sy, 0.01)  # slight Z offset
-            p1 = points.InsertNextPoint(ex, ey, 0.01)
+            p0 = points.InsertNextPoint(sx, sy, z)
+            p1 = points.InsertNextPoint(ex, ey, z)
             line = vtkLine()
             line.GetPointIds().SetId(0, p0)
             line.GetPointIds().SetId(1, p1)
