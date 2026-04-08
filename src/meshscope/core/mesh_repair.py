@@ -62,13 +62,13 @@ def plan_repair(analysis: MeshAnalysis, mesh: MeshData) -> RepairPlan:
 
     # 2. Fix normals — count faces that changed winding
     faces_before_normals = trial.faces.copy()
-    trimesh.repair.fix_normals(trial)
+    trimesh.repair.fix_normals(trial)  # type: ignore[no-untyped-call]
     flipped_count = int(np.sum(np.any(trial.faces != faces_before_normals, axis=1)))
 
     # 3. Fill holes
     holes = analysis.hole_count
     if holes > 0:
-        trimesh.repair.fill_holes(trial)
+        trimesh.repair.fill_holes(trial)  # type: ignore[no-untyped-call]
 
     estimated_delta = len(trial.faces) - original_face_count
     high_impact = (
@@ -129,7 +129,7 @@ def apply_repair(mesh: MeshData, plan: RepairPlan) -> RepairResult:
     if plan.flipped_normal_count > 0:
         try:
             faces_before_fix = tm.faces.copy()
-            trimesh.repair.fix_normals(tm)
+            trimesh.repair.fix_normals(tm)  # type: ignore[no-untyped-call]
             normals_fixed = int(np.sum(np.any(tm.faces != faces_before_fix, axis=1)))
         except Exception:
             remaining.append("Could not fix normals")
@@ -139,7 +139,7 @@ def apply_repair(mesh: MeshData, plan: RepairPlan) -> RepairResult:
     if plan.holes_to_fill > 0:
         try:
             faces_before_fill = len(tm.faces)
-            trimesh.repair.fill_holes(tm)
+            trimesh.repair.fill_holes(tm)  # type: ignore[no-untyped-call]
             faces_added = len(tm.faces) - faces_before_fill
             if faces_added > 0:
                 holes_filled = plan.holes_to_fill

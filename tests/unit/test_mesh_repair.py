@@ -305,3 +305,22 @@ class TestApplyRepair:
         result = apply_repair(mesh, plan)
         # Degenerate removal should succeed fully
         assert result.degenerate_faces_removed >= 1
+
+    def test_trimesh_repair_calls_are_callable(self) -> None:
+        """Regression: trimesh.repair.fix_normals and fill_holes are untyped.
+
+        We suppress mypy no-untyped-call with type: ignore comments.
+        This test guards that the underlying functions remain callable
+        and produce valid results despite the lack of type stubs.
+        """
+        mesh = _make_open_mesh()
+        analysis = analyze_mesh(mesh)
+        # plan_repair calls fix_normals and fill_holes on a trial copy
+        plan = plan_repair(analysis, mesh)
+        assert isinstance(plan.flipped_normal_count, int)
+        assert isinstance(plan.holes_to_fill, int)
+        # apply_repair calls them again on the real mesh
+        result = apply_repair(mesh, plan)
+        assert isinstance(result.normals_fixed, int)
+        assert isinstance(result.holes_filled, int)
+        assert result.mesh.vertices.shape[1] == 3
