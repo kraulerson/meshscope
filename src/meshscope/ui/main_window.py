@@ -216,7 +216,7 @@ class MainWindow(QMainWindow):
             if self.bed_preset_combo.itemData(i) == saved_preset:
                 self.bed_preset_combo.setCurrentIndex(i)
                 break
-        self.bed_preset_combo.currentIndexChanged.connect(self._on_bed_preset_changed)
+        self.bed_preset_combo.activated.connect(self._on_bed_preset_changed)
         self.toolbar.addWidget(self.bed_preset_combo)
 
         self.toolbar.addSeparator()
@@ -301,8 +301,6 @@ class MainWindow(QMainWindow):
         self.bed_action.setEnabled(enabled)
         self.bed_preset_combo.setEnabled(enabled)
         self.analyze_action.setEnabled(enabled)
-        if not enabled:
-            self.bed_action.setChecked(False)
 
     # --- Toolbar callbacks ---
 

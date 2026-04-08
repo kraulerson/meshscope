@@ -373,3 +373,71 @@ class TestMainWindowAnalyze:
         window.analyze_action.trigger()  # second call must not raise
         assert window._document is not None
         assert window._document.analysis is not None
+
+
+class TestUAT3Regressions:
+    """Regression tests for UAT session 3 bugs."""
+
+    # UAT3-001: bed preset combo should use activated signal so re-selecting
+    # "Custom..." when already on Custom still reopens the dialog.
+    def test_bed_preset_combo_activated_fires_handler(self, window: MainWindow) -> None:
+        """UAT3-001: activated signal must invoke _on_bed_preset_changed."""
+        from unittest.mock import patch
+
+        combo = window.bed_preset_combo
+        call_count: list[int] = []
+
+        def recording_handler(index: int) -> None:
+            call_count.append(index)
+
+        with patch.object(
+            window, "_on_bed_preset_changed", side_effect=recording_handler
+        ):
+            combo.activated.emit(0)
+
+        assert len(call_count) == 1, (
+            "UAT3-001: bed_preset_combo 'activated' signal must be connected to "
+            "_on_bed_preset_changed. Emitting activated did not invoke the handler."
+        )
+
+    def test_bed_preset_combo_currentIndexChanged_not_connected(
+        self, window: MainWindow
+    ) -> None:
+        """UAT3-001: currentIndexChanged must NOT invoke _on_bed_preset_changed."""
+        from unittest.mock import patch
+
+        combo = window.bed_preset_combo
+        call_count: list[int] = []
+
+        def spy(index: int) -> None:
+            call_count.append(index)
+
+        with patch.object(window, "_on_bed_preset_changed", side_effect=spy):
+            # setCurrentIndex fires currentIndexChanged but NOT activated
+            original_index = combo.currentIndex()
+            new_index = 1 if original_index != 1 else 0
+            combo.setCurrentIndex(new_index)
+
+        assert len(call_count) == 0, (
+            "UAT3-001: currentIndexChanged must NOT be connected to "
+            "_on_bed_preset_changed. Use activated signal instead."
+        )
+
+    # UAT3-002: bed checked state must survive a file reload
+    def test_bed_stays_checked_after_reload(
+        self, window: MainWindow, tmp_path: Path
+    ) -> None:
+        """UAT3-002: bed must remain checked after loading a new file."""
+        fixtures = Path(__file__).parent.parent / "fixtures" / "valid"
+        window._load_file(fixtures / "cube.stl")
+
+        window.bed_action.setChecked(True)
+        assert window.bed_action.isChecked(), "Pre-condition: bed should be checked"
+
+        # Load the same file again — this used to uncheck the bed
+        window._load_file(fixtures / "cube.stl")
+
+        assert window.bed_action.isChecked(), (
+            "UAT3-002: bed_action must remain checked after a new file load. "
+            "_set_render_actions_enabled must not call bed_action.setChecked(False)."
+        )
