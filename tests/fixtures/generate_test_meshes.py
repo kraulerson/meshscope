@@ -260,6 +260,328 @@ def generate_cube_3mf(path: Path) -> None:
         zf.writestr("3D/3dmodel.model", model_xml)
 
 
+def generate_open_box(path: Path) -> None:
+    """Cube (20mm) with top 2 faces removed — has hole.
+
+    Known issues:
+    - 1 hole (missing top face)
+    - 4 open edges along top rim
+    - NOT manifold/watertight
+
+    Expected repair results:
+    - Holes to fill: >= 1
+    - After repair: should become watertight (~12 faces)
+    """
+    v = [
+        (0, 0, 0),
+        (20, 0, 0),
+        (20, 20, 0),
+        (0, 20, 0),
+        (0, 0, 20),
+        (20, 0, 20),
+        (20, 20, 20),
+        (0, 20, 20),
+    ]
+    triangles = [
+        # Bottom
+        ((0, 0, -1), v[0], v[2], v[1]),
+        ((0, 0, -1), v[0], v[3], v[2]),
+        # Front
+        ((0, -1, 0), v[0], v[1], v[5]),
+        ((0, -1, 0), v[0], v[5], v[4]),
+        # Right
+        ((1, 0, 0), v[1], v[2], v[6]),
+        ((1, 0, 0), v[1], v[6], v[5]),
+        # Back
+        ((0, 1, 0), v[2], v[3], v[7]),
+        ((0, 1, 0), v[2], v[7], v[6]),
+        # Left
+        ((-1, 0, 0), v[3], v[0], v[4]),
+        ((-1, 0, 0), v[3], v[4], v[7]),
+        # Top REMOVED — creates hole
+    ]
+    with open(path, "wb") as f:
+        f.write(b"\x00" * 80)
+        f.write(struct.pack("<I", len(triangles)))
+        for normal, v0, v1, v2 in triangles:
+            for coord in normal:
+                f.write(struct.pack("<f", coord))
+            for vert in (v0, v1, v2):
+                for coord in vert:
+                    f.write(struct.pack("<f", float(coord)))
+            f.write(struct.pack("<H", 0))
+
+
+def generate_flipped_normals_box(path: Path) -> None:
+    """Cube (15mm) with 4 faces having reversed winding.
+
+    Known issues:
+    - 4 faces with inconsistent winding (front + right sides)
+    - Watertight but normals inconsistent
+
+    Expected repair results:
+    - Flipped normals: >= 1
+    - After repair: all normals consistent
+    """
+    v = [
+        (0, 0, 0),
+        (15, 0, 0),
+        (15, 15, 0),
+        (0, 15, 0),
+        (0, 0, 15),
+        (15, 0, 15),
+        (15, 15, 15),
+        (0, 15, 15),
+    ]
+    triangles = [
+        # Bottom (correct)
+        ((0, 0, -1), v[0], v[2], v[1]),
+        ((0, 0, -1), v[0], v[3], v[2]),
+        # Top (correct)
+        ((0, 0, 1), v[4], v[5], v[6]),
+        ((0, 0, 1), v[4], v[6], v[7]),
+        # Front — REVERSED winding
+        ((0, 1, 0), v[0], v[5], v[1]),
+        ((0, 1, 0), v[0], v[4], v[5]),
+        # Right — REVERSED winding
+        ((1, 0, 0), v[1], v[6], v[2]),
+        ((1, 0, 0), v[1], v[5], v[6]),
+        # Back (correct)
+        ((0, 1, 0), v[2], v[3], v[7]),
+        ((0, 1, 0), v[2], v[7], v[6]),
+        # Left (correct)
+        ((-1, 0, 0), v[3], v[0], v[4]),
+        ((-1, 0, 0), v[3], v[4], v[7]),
+    ]
+    with open(path, "wb") as f:
+        f.write(b"\x00" * 80)
+        f.write(struct.pack("<I", len(triangles)))
+        for normal, v0, v1, v2 in triangles:
+            for coord in normal:
+                f.write(struct.pack("<f", coord))
+            for vert in (v0, v1, v2):
+                for coord in vert:
+                    f.write(struct.pack("<f", float(coord)))
+            f.write(struct.pack("<H", 0))
+
+
+def generate_degenerate_plate(path: Path) -> None:
+    """Flat plate (30mm) with 2 good + 2 degenerate (zero-area) faces.
+
+    Known issues:
+    - 2 degenerate faces (repeated vertices = zero area)
+    - NOT manifold
+
+    Expected repair results:
+    - Degenerate faces to remove: 2
+    - After repair: 2 faces remaining
+    """
+    v = [
+        (0, 0, 0),
+        (30, 0, 0),
+        (30, 30, 0),
+        (0, 30, 0),
+        (15, 15, 0),
+    ]
+    triangles = [
+        # Good triangles
+        ((0, 0, 1), v[0], v[1], v[2]),
+        ((0, 0, 1), v[0], v[2], v[3]),
+        # Degenerate: vertex repeated (zero area)
+        ((0, 0, 0), v[4], v[4], v[0]),
+        # Degenerate: vertex repeated
+        ((0, 0, 0), v[1], v[1], v[2]),
+    ]
+    with open(path, "wb") as f:
+        f.write(b"\x00" * 80)
+        f.write(struct.pack("<I", len(triangles)))
+        for normal, v0, v1, v2 in triangles:
+            for coord in normal:
+                f.write(struct.pack("<f", coord))
+            for vert in (v0, v1, v2):
+                for coord in vert:
+                    f.write(struct.pack("<f", float(coord)))
+            f.write(struct.pack("<H", 0))
+
+
+def generate_mixed_issues(path: Path) -> None:
+    """Icosahedron (~10mm radius) with 1 face removed + 1 degenerate face.
+
+    Known issues:
+    - 1 hole (missing face = 3 open edges)
+    - 1 degenerate face
+    - NOT manifold
+    - High impact warning likely (face count change > 5% of ~20 faces)
+
+    Expected repair results:
+    - Holes to fill: >= 1
+    - Degenerate faces to remove: 1
+    - high_impact_warning: True
+    """
+    import math
+
+    phi = (1 + math.sqrt(5)) / 2
+    s = 10.0
+    raw = [
+        (-1, phi, 0),
+        (1, phi, 0),
+        (-1, -phi, 0),
+        (1, -phi, 0),
+        (0, -1, phi),
+        (0, 1, phi),
+        (0, -1, -phi),
+        (0, 1, -phi),
+        (phi, 0, -1),
+        (phi, 0, 1),
+        (-phi, 0, -1),
+        (-phi, 0, 1),
+    ]
+    verts = []
+    for x, y, z in raw:
+        length = math.sqrt(x * x + y * y + z * z)
+        verts.append((x / length * s, y / length * s, z / length * s))
+
+    ico_faces = [
+        (0, 11, 5),
+        (0, 5, 1),
+        (0, 1, 7),
+        (0, 7, 10),
+        (0, 10, 11),
+        (1, 5, 9),
+        (5, 11, 4),
+        (11, 10, 2),
+        (10, 7, 6),
+        (7, 1, 8),
+        (3, 9, 4),
+        (3, 4, 2),
+        (3, 2, 6),
+        (3, 6, 8),
+        (3, 8, 9),
+        (4, 9, 5),
+        (2, 4, 11),
+        (6, 2, 10),
+        # Face (8, 6, 7) REMOVED — creates hole
+        (9, 8, 1),
+    ]
+    # Add degenerate face
+    ico_faces.append((0, 0, 5))
+
+    triangles = []
+    for f in ico_faces:
+        v0, v1, v2 = verts[f[0]], verts[f[1]], verts[f[2]]
+        # Compute normal
+        e1 = (v1[0] - v0[0], v1[1] - v0[1], v1[2] - v0[2])
+        e2 = (v2[0] - v0[0], v2[1] - v0[1], v2[2] - v0[2])
+        nx = e1[1] * e2[2] - e1[2] * e2[1]
+        ny = e1[2] * e2[0] - e1[0] * e2[2]
+        nz = e1[0] * e2[1] - e1[1] * e2[0]
+        nl = math.sqrt(nx * nx + ny * ny + nz * nz)
+        if nl > 1e-10:
+            nx, ny, nz = nx / nl, ny / nl, nz / nl
+        else:
+            nx, ny, nz = 0, 0, 0
+        triangles.append(((nx, ny, nz), v0, v1, v2))
+
+    with open(path, "wb") as f:
+        f.write(b"\x00" * 80)
+        f.write(struct.pack("<I", len(triangles)))
+        for normal, v0, v1, v2 in triangles:
+            for coord in normal:
+                f.write(struct.pack("<f", coord))
+            for vert in (v0, v1, v2):
+                for coord in vert:
+                    f.write(struct.pack("<f", float(coord)))
+            f.write(struct.pack("<H", 0))
+
+
+def generate_l_shape(path: Path) -> None:
+    """L-shaped prism — asymmetric mesh for verifying transforms visually.
+
+    Properties:
+    - Clearly asymmetric in all 3 axes
+    - Watertight, manifold, NO issues
+    - Bounding box: 0-40mm X, 0-30mm Y, 0-20mm Z
+    - L-shape: full base 40x20, upper section 20x10
+
+    Use for:
+    - Scale: dimensions should change proportionally
+    - Rotate: L-shape visibly rotates (not symmetric like cube)
+    - Mirror: L flips to reverse-L (clearly visible)
+    """
+    v = [
+        # Bottom (z=0)
+        (0, 0, 0),
+        (40, 0, 0),
+        (40, 20, 0),
+        (20, 20, 0),
+        (20, 30, 0),
+        (0, 30, 0),
+        # Top (z=20)
+        (0, 0, 20),
+        (40, 0, 20),
+        (40, 20, 20),
+        (20, 20, 20),
+        (20, 30, 20),
+        (0, 30, 20),
+    ]
+    face_indices = [
+        # Bottom (z=0)
+        (0, 2, 1),
+        (0, 3, 2),
+        (0, 4, 3),
+        (0, 5, 4),
+        # Top (z=20)
+        (6, 7, 8),
+        (6, 8, 9),
+        (6, 9, 10),
+        (6, 10, 11),
+        # Front (y=0)
+        (0, 1, 7),
+        (0, 7, 6),
+        # Right (x=40, y=0..20)
+        (1, 2, 8),
+        (1, 8, 7),
+        # Step horizontal (y=20, x=20..40)
+        (2, 3, 9),
+        (2, 9, 8),
+        # Step vertical (x=20, y=20..30)
+        (3, 4, 10),
+        (3, 10, 9),
+        # Back (y=30, x=0..20)
+        (4, 5, 11),
+        (4, 11, 10),
+        # Left (x=0)
+        (5, 0, 6),
+        (5, 6, 11),
+    ]
+
+    triangles = []
+    for fi in face_indices:
+        v0, v1, v2 = v[fi[0]], v[fi[1]], v[fi[2]]
+        e1 = (v1[0] - v0[0], v1[1] - v0[1], v1[2] - v0[2])
+        e2 = (v2[0] - v0[0], v2[1] - v0[1], v2[2] - v0[2])
+        nx = e1[1] * e2[2] - e1[2] * e2[1]
+        ny = e1[2] * e2[0] - e1[0] * e2[2]
+        nz = e1[0] * e2[1] - e1[1] * e2[0]
+        import math
+
+        nl = math.sqrt(nx * nx + ny * ny + nz * nz)
+        if nl > 1e-10:
+            nx, ny, nz = nx / nl, ny / nl, nz / nl
+        triangles.append(((nx, ny, nz), v0, v1, v2))
+
+    with open(path, "wb") as f:
+        f.write(b"\x00" * 80)
+        f.write(struct.pack("<I", len(triangles)))
+        for normal, v0, v1, v2 in triangles:
+            for coord in normal:
+                f.write(struct.pack("<f", coord))
+            for vert in (v0, v1, v2):
+                for coord in vert:
+                    f.write(struct.pack("<f", float(coord)))
+            f.write(struct.pack("<H", 0))
+
+
 def generate_invalid_fixtures() -> None:
     """Generate broken files for error testing."""
     # Truncated binary STL
@@ -294,6 +616,11 @@ if __name__ == "__main__":
     generate_cube_obj_with_materials(VALID_DIR / "cube_with_materials.obj")
     generate_cube_ply(VALID_DIR / "cube.ply")
     generate_cube_3mf(VALID_DIR / "cube.3mf")
+    generate_open_box(VALID_DIR / "open_box.stl")
+    generate_flipped_normals_box(VALID_DIR / "flipped_normals_box.stl")
+    generate_degenerate_plate(VALID_DIR / "degenerate_plate.stl")
+    generate_mixed_issues(VALID_DIR / "mixed_issues_sphere.stl")
+    generate_l_shape(VALID_DIR / "l_shape.stl")
     generate_invalid_fixtures()
 
     print("Generated test fixtures:")

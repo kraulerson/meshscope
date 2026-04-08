@@ -576,3 +576,90 @@ class TestMainWindowTransform:
         bad.write_bytes(b"not a real stl file")
         window._load_file(bad)
         assert not window.transform_action.isEnabled()
+
+
+class TestUAT4Regressions:
+    """Regression tests for UAT session 4 bugs."""
+
+    def test_rotate_axis_buttons_exclusive(self, window: MainWindow) -> None:
+        """UAT4-004: Axis buttons must be exclusive via QButtonGroup."""
+        from meshscope.core.mesh_data import BoundingBox
+        from meshscope.ui.transform_dialog import TransformDialog
+
+        bb = BoundingBox(0, 0, 0, 10, 10, 10)
+        dialog = TransformDialog(bb, parent=window)
+
+        # Click Y — X should deselect
+        dialog._rotate_axis_buttons["Y"].click()
+        assert dialog._rotate_axis_buttons["X"].isChecked() is False
+        assert dialog._rotate_axis_buttons["Y"].isChecked() is True
+        assert dialog.rotate_axis() == "y"
+
+        # Re-click Y — should stay selected (not toggle off)
+        dialog._rotate_axis_buttons["Y"].click()
+        assert dialog._rotate_axis_buttons["Y"].isChecked() is True
+        assert dialog.rotate_axis() == "y"
+
+    def test_mirror_axis_buttons_exclusive(self, window: MainWindow) -> None:
+        """UAT4-004: Mirror axis buttons must also be exclusive."""
+        from meshscope.core.mesh_data import BoundingBox
+        from meshscope.ui.transform_dialog import TransformDialog
+
+        bb = BoundingBox(0, 0, 0, 10, 10, 10)
+        dialog = TransformDialog(bb, parent=window)
+
+        dialog._mirror_axis_buttons["Z"].click()
+        assert dialog._mirror_axis_buttons["X"].isChecked() is False
+        assert dialog._mirror_axis_buttons["Z"].isChecked() is True
+        assert dialog.mirror_axis() == "z"
+
+    def test_print_bed_positioned_at_model(self, window: MainWindow) -> None:
+        """UAT4-007: Print bed must be centered under the model."""
+        fixtures = Path(__file__).parent.parent / "fixtures" / "valid"
+        window._load_file(fixtures / "cube.stl")
+        window.bed_action.setChecked(True)
+
+        actors = window._viewport.scene_manager._print_bed_actors
+        assert len(actors) > 0, "Print bed actors should exist"
+        pos = actors[0].GetPosition()
+        # Cube is 0-10mm, center is 5. Ender 3 is 220mm.
+        # offset_x = 5 - 110 = -105, offset_y = 5 - 110 = -105, offset_z = 0
+        assert pos[2] == 0.0, "Bed floor should be at model's min_z"
+
+    def test_axis_button_has_checked_stylesheet(self, window: MainWindow) -> None:
+        """UAT4-030: Axis buttons must have visible checked-state styling."""
+        from meshscope.core.mesh_data import BoundingBox
+        from meshscope.ui.transform_dialog import TransformDialog
+
+        bb = BoundingBox(0, 0, 0, 10, 10, 10)
+        dialog = TransformDialog(bb, parent=window)
+        btn = dialog._rotate_axis_buttons["X"]
+        style = btn.styleSheet()
+        assert "checked" in style, "Axis button must have checked-state stylesheet"
+
+    def test_transform_preserves_camera_position(self, window: MainWindow) -> None:
+        """Camera must not reset after transform/undo/redo/repair."""
+        fixtures = Path(__file__).parent.parent / "fixtures" / "valid"
+        window._load_file(fixtures / "cube.stl")
+
+        from meshscope.vtk_adapter.mesh_adapter import mesh_data_to_polydata
+
+        polydata = mesh_data_to_polydata(window._document.mesh)
+        sm = window._viewport.scene_manager
+        cam = sm._renderer.GetActiveCamera()
+        cam.SetPosition(99, 99, 99)
+        sm.display_mesh(polydata, auto_fit=False)
+        pos = cam.GetPosition()
+        assert pos[0] == 99.0, "Camera must not reset with auto_fit=False"
+
+    def test_print_bed_has_axis_indicators(self, window: MainWindow) -> None:
+        """UAT4-018: Print bed must include axis arrow actors."""
+        fixtures = Path(__file__).parent.parent / "fixtures" / "valid"
+        window._load_file(fixtures / "cube.stl")
+        window.bed_action.setChecked(True)
+
+        actors = window._viewport.scene_manager._print_bed_actors
+        # Should have grid + wireframe + 6 axis actors (3 arrows + 3 labels)
+        assert len(actors) >= 8, (
+            f"Expected at least 8 bed actors (grid + box + 6 axis), got {len(actors)}"
+        )

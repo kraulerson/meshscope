@@ -60,8 +60,15 @@ class SceneManager:
         # Set background color
         self._renderer.SetBackground(*BACKGROUND_COLOR)
 
-    def display_mesh(self, polydata: vtkPolyData) -> None:
-        """Display a mesh in the scene, replacing any existing mesh."""
+    def display_mesh(self, polydata: vtkPolyData, *, auto_fit: bool = True) -> None:
+        """Display a mesh in the scene, replacing any existing mesh.
+
+        Args:
+            polydata: The mesh geometry to display.
+            auto_fit: If True (default), reset camera to frame the model.
+                Set to False when updating mesh in-place (transforms, undo)
+                to preserve the user's camera position.
+        """
         self.clear()
 
         # Create mapper and actor
@@ -83,11 +90,12 @@ class SceneManager:
         self._wireframe_overlay_enabled = False
         self._smooth_shading_enabled = False
 
-        # Auto-frame the model
-        try:
-            self.fit_to_view()
-        except Exception:
-            logger.warning("fit_to_view failed after display_mesh", exc_info=True)
+        # Auto-frame the model (skip for in-place updates like transforms)
+        if auto_fit:
+            try:
+                self.fit_to_view()
+            except Exception:
+                logger.warning("fit_to_view failed after display_mesh", exc_info=True)
 
         logger.debug("Displayed mesh: %d cells", polydata.GetNumberOfCells())
 
@@ -132,12 +140,25 @@ class SceneManager:
         return self._highlights_visible
 
     def show_print_bed(self, x: int, y: int, z: int, bbox: BoundingBox) -> str | None:
-        """Show print bed volume overlay. Returns overflow text or None."""
+        """Show print bed volume overlay. Returns overflow text or None.
+
+        Positions the bed so the model sits on the bed floor with the
+        bed centered under the model in X/Y.
+        """
         self.hide_print_bed()
         actors = self._print_bed_manager.create_actors(x, y, z)
         overflow_actors = self._print_bed_manager.create_overflow_actors(x, y, z, bbox)
         self._print_bed_actors = actors + overflow_actors
+
+        # Position bed so model sits on floor, centered in X/Y
+        model_center_x = (bbox.min_x + bbox.max_x) / 2
+        model_center_y = (bbox.min_y + bbox.max_y) / 2
+        offset_x = model_center_x - x / 2
+        offset_y = model_center_y - y / 2
+        offset_z = bbox.min_z
+
         for actor in self._print_bed_actors:
+            actor.SetPosition(offset_x, offset_y, offset_z)
             self._renderer.AddActor(actor)
         self._print_bed_visible = True
         return get_overflow_text(x, y, z, bbox)

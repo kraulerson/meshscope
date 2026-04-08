@@ -439,7 +439,7 @@ class MainWindow(QMainWindow):
         self._document.analysis = None
 
         polydata = mesh_data_to_polydata(self._document.mesh)
-        self._viewport.scene_manager.display_mesh(polydata)
+        self._viewport.scene_manager.display_mesh(polydata, auto_fit=False)
         self._viewport.vtk_render()
 
         self._info_panel.set_document(self._document)
@@ -468,7 +468,7 @@ class MainWindow(QMainWindow):
         self._document.analysis = None
 
         polydata = mesh_data_to_polydata(self._document.mesh)
-        self._viewport.scene_manager.display_mesh(polydata)
+        self._viewport.scene_manager.display_mesh(polydata, auto_fit=False)
         self._viewport.vtk_render()
 
         self._info_panel.set_document(self._document)
@@ -581,7 +581,7 @@ class MainWindow(QMainWindow):
 
         # Update viewport
         polydata = mesh_data_to_polydata(self._document.mesh)
-        self._viewport.scene_manager.display_mesh(polydata)
+        self._viewport.scene_manager.display_mesh(polydata, auto_fit=False)
         self._viewport.vtk_render()
 
         # Update info panel with new mesh metadata
@@ -678,7 +678,7 @@ class MainWindow(QMainWindow):
 
         # Update viewport
         polydata = mesh_data_to_polydata(self._document.mesh)
-        self._viewport.scene_manager.display_mesh(polydata)
+        self._viewport.scene_manager.display_mesh(polydata, auto_fit=False)
         self._viewport.vtk_render()
 
         # Update info panel
