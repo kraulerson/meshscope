@@ -7,9 +7,9 @@ configuration. Operates on a vtkRenderer that it receives.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-import numpy as np
+import numpy.typing as npt
 from vtkmodules.vtkCommonDataModel import vtkPolyData
 from vtkmodules.vtkRenderingCore import (
     vtkActor,
@@ -107,7 +107,10 @@ class SceneManager:
         self.hide_highlights()
 
     def show_highlights(
-        self, analysis: MeshAnalysis, vertices: np.ndarray, faces: np.ndarray
+        self,
+        analysis: MeshAnalysis,
+        vertices: npt.NDArray[Any],
+        faces: npt.NDArray[Any],
     ) -> None:
         """Create and add highlight actors for all mesh problems found in analysis."""
         self.hide_highlights()

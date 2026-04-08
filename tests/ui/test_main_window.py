@@ -364,3 +364,12 @@ class TestMainWindowAnalyze:
         bad.write_bytes(b"not a real stl file")
         window._load_file(bad)
         assert not window.analyze_action.isEnabled()
+
+    def test_analyze_twice_does_not_crash(self, window: MainWindow) -> None:
+        """Regression: double-analyze must not crash."""
+        fixtures = Path(__file__).parent.parent / "fixtures" / "valid"
+        window._load_file(fixtures / "cube.stl")
+        window.analyze_action.trigger()
+        window.analyze_action.trigger()  # second call must not raise
+        assert window._document is not None
+        assert window._document.analysis is not None

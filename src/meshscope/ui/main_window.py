@@ -66,6 +66,7 @@ class MainWindow(QMainWindow):
 
         self._document: MeshDocument | None = None
         self._is_loading = False
+        self._highlight_connected = False
 
         # Viewport (central widget)
         self._viewport = ViewportWidget(self)
@@ -327,18 +328,14 @@ class MainWindow(QMainWindow):
             self._info_panel.show_analysis(analysis)
 
             # Connect highlight checkbox (disconnect first to avoid duplicates)
-            if (
-                self._info_panel.highlight_checkbox.receivers(
-                    self._info_panel.highlight_checkbox.toggled
-                )
-                > 0
-            ):
+            if self._highlight_connected:
                 self._info_panel.highlight_checkbox.toggled.disconnect(
                     self._on_highlight_toggled
                 )
             self._info_panel.highlight_checkbox.toggled.connect(
                 self._on_highlight_toggled
             )
+            self._highlight_connected = True
 
             total_issues = (
                 analysis.open_edge_count
