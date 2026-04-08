@@ -2,10 +2,16 @@
 
 import numpy as np
 import pytest
+from vtkmodules.vtkCommonCore import vtkFloatArray
+from vtkmodules.vtkCommonCore import vtkPoints as VtkPoints
+from vtkmodules.vtkCommonDataModel import vtkCellArray as VtkCellArray
+from vtkmodules.vtkCommonDataModel import vtkPolyData, vtkTriangle
+from vtkmodules.vtkRenderingCore import vtkRenderer
 
 from meshscope.core.mesh_data import BoundingBox, Measurement, MeshData, MeshMetadata
 from meshscope.core.mesh_document import MeshDocument
 from meshscope.vtk_adapter.measurement_manager import MeasurementManager
+from meshscope.vtk_adapter.scene_manager import SceneManager
 
 
 class TestMeasurementDataclass:
@@ -287,3 +293,174 @@ class TestMeasurementManagerPendingPoint:
         assert color[0] == pytest.approx(0.251, abs=0.01)
         assert color[1] == pytest.approx(0.690, abs=0.01)
         assert color[2] == pytest.approx(0.941, abs=0.01)
+
+
+# --- SceneManager tests ---
+
+
+def _make_polydata() -> vtkPolyData:
+    """Create a minimal vtkPolyData triangle for testing."""
+    points = VtkPoints()
+    points.InsertNextPoint(0, 0, 0)
+    points.InsertNextPoint(10, 0, 0)
+    points.InsertNextPoint(5, 10, 0)
+
+    cells = VtkCellArray()
+    tri = vtkTriangle()
+    tri.GetPointIds().SetId(0, 0)
+    tri.GetPointIds().SetId(1, 1)
+    tri.GetPointIds().SetId(2, 2)
+    cells.InsertNextCell(tri)
+
+    normals = vtkFloatArray()
+    normals.SetNumberOfComponents(3)
+    normals.SetName("Normals")
+    normals.InsertNextTuple3(0, 0, 1)
+
+    polydata = vtkPolyData()
+    polydata.SetPoints(points)
+    polydata.SetPolys(cells)
+    polydata.GetCellData().SetNormals(normals)
+    return polydata
+
+
+class TestSceneManagerPickSurfacePoint:
+    def test_pick_surface_point_exists(self) -> None:
+        renderer = vtkRenderer()
+        sm = SceneManager(renderer)
+        assert hasattr(sm, "pick_surface_point")
+        assert callable(sm.pick_surface_point)
+
+    def test_pick_returns_none_without_mesh(self) -> None:
+        renderer = vtkRenderer()
+        sm = SceneManager(renderer)
+        result = sm.pick_surface_point(100, 100)
+        assert result is None
+
+    def test_pick_with_mesh_returns_tuple_or_none(self) -> None:
+        """In headless environments, picker behavior varies.
+        Verify the return type is correct regardless."""
+        renderer = vtkRenderer()
+        sm = SceneManager(renderer)
+        sm.display_mesh(_make_polydata())
+        result = sm.pick_surface_point(0, 0)
+        if result is not None:
+            assert isinstance(result, tuple)
+            assert len(result) == 3
+
+
+class TestSceneManagerMeasurements:
+    def test_measurements_not_visible_initially(self) -> None:
+        renderer = vtkRenderer()
+        sm = SceneManager(renderer)
+        assert sm.measurements_visible is False
+
+    def test_show_measurements(self) -> None:
+        renderer = vtkRenderer()
+        sm = SceneManager(renderer)
+        measurements = [
+            Measurement(
+                point_a=(0.0, 0.0, 0.0),
+                point_b=(10.0, 0.0, 0.0),
+                distance_mm=10.0,
+                index=1,
+            )
+        ]
+        sm.show_measurements(measurements)
+        assert sm.measurements_visible is True
+
+    def test_show_measurements_adds_actors_to_renderer(self) -> None:
+        renderer = vtkRenderer()
+        sm = SceneManager(renderer)
+        measurements = [
+            Measurement(
+                point_a=(0.0, 0.0, 0.0),
+                point_b=(10.0, 0.0, 0.0),
+                distance_mm=10.0,
+                index=1,
+            )
+        ]
+        actors_before = renderer.GetActors().GetNumberOfItems()
+        sm.show_measurements(measurements)
+        actors_after = renderer.GetActors().GetNumberOfItems()
+        assert actors_after - actors_before == 3
+
+    def test_hide_measurements(self) -> None:
+        renderer = vtkRenderer()
+        sm = SceneManager(renderer)
+        measurements = [
+            Measurement(
+                point_a=(0.0, 0.0, 0.0),
+                point_b=(10.0, 0.0, 0.0),
+                distance_mm=10.0,
+                index=1,
+            )
+        ]
+        sm.show_measurements(measurements)
+        sm.hide_measurements()
+        assert sm.measurements_visible is False
+
+    def test_hide_measurements_removes_actors(self) -> None:
+        renderer = vtkRenderer()
+        sm = SceneManager(renderer)
+        measurements = [
+            Measurement(
+                point_a=(0.0, 0.0, 0.0),
+                point_b=(10.0, 0.0, 0.0),
+                distance_mm=10.0,
+                index=1,
+            )
+        ]
+        actors_before = renderer.GetActors().GetNumberOfItems()
+        sm.show_measurements(measurements)
+        sm.hide_measurements()
+        actors_after = renderer.GetActors().GetNumberOfItems()
+        assert actors_after == actors_before
+
+    def test_clear_also_hides_measurements(self) -> None:
+        renderer = vtkRenderer()
+        sm = SceneManager(renderer)
+        measurements = [
+            Measurement(
+                point_a=(0.0, 0.0, 0.0),
+                point_b=(10.0, 0.0, 0.0),
+                distance_mm=10.0,
+                index=1,
+            )
+        ]
+        sm.show_measurements(measurements)
+        sm.clear()
+        assert sm.measurements_visible is False
+
+
+class TestSceneManagerPendingPoint:
+    def test_show_pending_point(self) -> None:
+        renderer = vtkRenderer()
+        sm = SceneManager(renderer)
+        actors_before = renderer.GetActors().GetNumberOfItems()
+        sm.show_pending_point((5.0, 5.0, 5.0), index=1)
+        actors_after = renderer.GetActors().GetNumberOfItems()
+        assert actors_after == actors_before + 1
+
+    def test_hide_pending_point(self) -> None:
+        renderer = vtkRenderer()
+        sm = SceneManager(renderer)
+        sm.show_pending_point((5.0, 5.0, 5.0), index=1)
+        actors_before = renderer.GetActors().GetNumberOfItems()
+        sm.hide_pending_point()
+        actors_after = renderer.GetActors().GetNumberOfItems()
+        assert actors_after == actors_before - 1
+
+    def test_hide_pending_point_noop_when_none(self) -> None:
+        renderer = vtkRenderer()
+        sm = SceneManager(renderer)
+        sm.hide_pending_point()  # should not raise
+
+    def test_show_pending_point_replaces_previous(self) -> None:
+        renderer = vtkRenderer()
+        sm = SceneManager(renderer)
+        sm.show_pending_point((0.0, 0.0, 0.0), index=1)
+        actors_mid = renderer.GetActors().GetNumberOfItems()
+        sm.show_pending_point((5.0, 5.0, 5.0), index=2)
+        actors_after = renderer.GetActors().GetNumberOfItems()
+        assert actors_after == actors_mid
