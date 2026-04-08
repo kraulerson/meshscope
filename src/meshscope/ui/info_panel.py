@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QCheckBox,
     QDockWidget,
     QFrame,
     QLabel,
@@ -17,6 +18,7 @@ from PySide6.QtWidgets import (
 )
 
 if TYPE_CHECKING:
+    from meshscope.core.mesh_analysis import MeshAnalysis
     from meshscope.core.mesh_document import MeshDocument
 
 # Unicode constants
@@ -219,6 +221,23 @@ class InfoPanel(QDockWidget):
         self._status_section.setVisible(False)
         self._layout.addWidget(self._status_section)
 
+        # --- Analysis section ---
+        self._analysis_section = CollapsibleSection("Analysis")
+        self._watertight_label = QLabel()
+        self._holes_label = QLabel()
+        self._open_edges_label = QLabel()
+        self._non_manifold_label = QLabel()
+        self._degenerate_label = QLabel()
+        self._analysis_section.content_layout.addWidget(self._watertight_label)
+        self._analysis_section.content_layout.addWidget(self._holes_label)
+        self._analysis_section.content_layout.addWidget(self._open_edges_label)
+        self._analysis_section.content_layout.addWidget(self._non_manifold_label)
+        self._analysis_section.content_layout.addWidget(self._degenerate_label)
+        self._highlight_checkbox = QCheckBox("Highlight in viewport")
+        self._analysis_section.content_layout.addWidget(self._highlight_checkbox)
+        self._analysis_section.setVisible(False)
+        self._layout.addWidget(self._analysis_section)
+
         self._layout.addStretch()
         self._scroll.setWidget(self._content)
 
@@ -334,6 +353,7 @@ class InfoPanel(QDockWidget):
         self._status_section.setVisible(False)
         self._warning_banner.setVisible(False)
         self._inline_unit_warning.setVisible(False)
+        self.clear_analysis()
         self._is_empty = True
 
     # --- Test accessor methods ---
@@ -403,3 +423,83 @@ class InfoPanel(QDockWidget):
         For testing use only.
         """
         return not self._inline_unit_warning.isHidden()
+
+    def show_analysis(self, analysis: MeshAnalysis) -> None:
+        """Populate the Analysis section from a MeshAnalysis result and show it."""
+        # Watertight
+        if analysis.is_watertight:
+            self._watertight_label.setText(f"{_CHECKMARK} Watertight: Yes")
+        else:
+            self._watertight_label.setText(f"{_WARNING} Watertight: No")
+
+        # Holes
+        if analysis.hole_count == 0:
+            self._holes_label.setText(f"{_CHECKMARK} Holes: 0")
+        else:
+            self._holes_label.setText(f"{_WARNING} Holes: {analysis.hole_count}")
+
+        # Open edges
+        if analysis.open_edge_count == 0:
+            self._open_edges_label.setText(f"{_CHECKMARK} Open edges: 0")
+        else:
+            self._open_edges_label.setText(
+                f"{_WARNING} Open edges: {analysis.open_edge_count}"
+            )
+
+        # Non-manifold edges
+        if analysis.non_manifold_edge_count == 0:
+            self._non_manifold_label.setText(f"{_CHECKMARK} Non-manifold edges: 0")
+        else:
+            self._non_manifold_label.setText(
+                f"{_WARNING} Non-manifold edges: {analysis.non_manifold_edge_count}"
+            )
+
+        # Degenerate faces
+        if analysis.degenerate_face_count == 0:
+            self._degenerate_label.setText(f"{_CHECKMARK} Degenerate faces: 0")
+        else:
+            self._degenerate_label.setText(
+                f"{_WARNING} Degenerate faces: {analysis.degenerate_face_count}"
+            )
+
+        # Auto-check highlight if any issues found
+        has_issues = (
+            not analysis.is_watertight
+            or analysis.hole_count > 0
+            or analysis.open_edge_count > 0
+            or analysis.non_manifold_edge_count > 0
+            or analysis.degenerate_face_count > 0
+        )
+        self._highlight_checkbox.setChecked(has_issues)
+
+        self._analysis_section.setVisible(True)
+
+    def clear_analysis(self) -> None:
+        """Hide the Analysis section and reset its state."""
+        self._analysis_section.setVisible(False)
+        self._highlight_checkbox.setChecked(False)
+
+    @property
+    def highlight_checkbox(self) -> QCheckBox:
+        """Return the 'Highlight in viewport' checkbox."""
+        return self._highlight_checkbox
+
+    def analysis_section_visible(self) -> bool:
+        """Return True if the Analysis section is not hidden (for testing)."""
+        return not self._analysis_section.isHidden()
+
+    def analysis_section_text(self) -> str:
+        """Return combined text of all analysis section labels (for testing)."""
+        return "\n".join(
+            [
+                self._watertight_label.text(),
+                self._holes_label.text(),
+                self._open_edges_label.text(),
+                self._non_manifold_label.text(),
+                self._degenerate_label.text(),
+            ]
+        )
+
+    def has_highlight_checkbox(self) -> bool:
+        """Return True if the highlight checkbox exists (for testing)."""
+        return self._highlight_checkbox is not None

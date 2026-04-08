@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from meshscope.core.undo_stack import UndoStack
 
 if TYPE_CHECKING:
+    from meshscope.core.mesh_analysis import MeshAnalysis
     from meshscope.core.mesh_data import MeshData
 
 
@@ -33,3 +34,4 @@ class MeshDocument:
         self.source_size_bytes = source_size_bytes
         self.undo_stack = UndoStack()
         self.warnings: list[str] = warnings if warnings is not None else []
+        self.analysis: MeshAnalysis | None = None
