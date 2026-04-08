@@ -9,7 +9,7 @@ from meshscope.core.undo_stack import UndoStack
 
 if TYPE_CHECKING:
     from meshscope.core.mesh_analysis import MeshAnalysis
-    from meshscope.core.mesh_data import MeshData, Measurement
+    from meshscope.core.mesh_data import Measurement, MeshData
 
 
 class MeshDocument:
