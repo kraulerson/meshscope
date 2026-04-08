@@ -1,7 +1,110 @@
 """Tests for mesh repair logic."""
 
+import numpy as np
+
 from meshscope.core.exceptions import MeshRepairError
-from meshscope.core.mesh_repair import RepairPlan, RepairResult
+from meshscope.core.mesh_analysis import analyze_mesh
+from meshscope.core.mesh_data import BoundingBox, MeshData, MeshMetadata
+from meshscope.core.mesh_repair import RepairPlan, RepairResult, plan_repair
+
+
+def _make_cube_mesh() -> MeshData:
+    """Watertight cube — no issues."""
+    vertices = np.array(
+        [
+            [0, 0, 0],
+            [10, 0, 0],
+            [10, 10, 0],
+            [0, 10, 0],
+            [0, 0, 10],
+            [10, 0, 10],
+            [10, 10, 10],
+            [0, 10, 10],
+        ],
+        dtype=np.float32,
+    )
+    faces = np.array(
+        [
+            [0, 2, 1],
+            [0, 3, 2],
+            [4, 5, 6],
+            [4, 6, 7],
+            [0, 1, 5],
+            [0, 5, 4],
+            [2, 3, 7],
+            [2, 7, 6],
+            [0, 4, 7],
+            [0, 7, 3],
+            [1, 2, 6],
+            [1, 6, 5],
+        ],
+        dtype=np.uint32,
+    )
+    normals = np.zeros((12, 3), dtype=np.float32)
+    bb = BoundingBox(0, 0, 0, 10, 10, 10)
+    meta = MeshMetadata(8, 12, bb, 600.0, 1000.0, True)
+    return MeshData(vertices=vertices, faces=faces, normals=normals, metadata=meta)
+
+
+def _make_open_mesh() -> MeshData:
+    """Cube with 2 faces removed — has holes and open edges."""
+    vertices = np.array(
+        [
+            [0, 0, 0],
+            [10, 0, 0],
+            [10, 10, 0],
+            [0, 10, 0],
+            [0, 0, 10],
+            [10, 0, 10],
+            [10, 10, 10],
+            [0, 10, 10],
+        ],
+        dtype=np.float32,
+    )
+    faces = np.array(
+        [
+            [0, 2, 1],
+            [0, 3, 2],
+            [4, 5, 6],
+            [4, 6, 7],
+            [0, 1, 5],
+            [0, 5, 4],
+            [2, 3, 7],
+            [2, 7, 6],
+            [0, 4, 7],
+            [0, 7, 3],
+        ],
+        dtype=np.uint32,
+    )
+    normals = np.zeros((10, 3), dtype=np.float32)
+    bb = BoundingBox(0, 0, 0, 10, 10, 10)
+    meta = MeshMetadata(8, 10, bb, 500.0, None, False)
+    return MeshData(vertices=vertices, faces=faces, normals=normals, metadata=meta)
+
+
+def _make_degenerate_mesh() -> MeshData:
+    """Simple mesh with one degenerate (zero-area) face."""
+    vertices = np.array(
+        [
+            [0, 0, 0],
+            [10, 0, 0],
+            [10, 10, 0],
+            [0, 10, 0],
+        ],
+        dtype=np.float32,
+    )
+    faces = np.array(
+        [
+            [0, 1, 2],
+            [0, 2, 3],
+            [0, 1, 0],  # degenerate: repeated vertex
+        ],
+        dtype=np.uint32,
+    )
+    normals = np.zeros((3, 3), dtype=np.float32)
+    bb = BoundingBox(0, 0, 0, 10, 10, 0)
+    meta = MeshMetadata(4, 3, bb, 100.0, None, False)
+    return MeshData(vertices=vertices, faces=faces, normals=normals, metadata=meta)
 
 
 class TestMeshRepairError:
@@ -84,3 +187,41 @@ class TestRepairResultDataclass:
             raise AssertionError("Should have raised")
         except AttributeError:
             pass
+
+
+class TestPlanRepair:
+    def test_clean_mesh_no_repairs_needed(self) -> None:
+        mesh = _make_cube_mesh()
+        analysis = analyze_mesh(mesh)
+        plan = plan_repair(analysis, mesh)
+        assert plan.holes_to_fill == 0
+        assert plan.degenerate_faces_to_remove == 0
+        assert plan.high_impact_warning is False
+
+    def test_open_mesh_reports_holes(self) -> None:
+        mesh = _make_open_mesh()
+        analysis = analyze_mesh(mesh)
+        plan = plan_repair(analysis, mesh)
+        assert plan.holes_to_fill > 0
+
+    def test_degenerate_mesh_reports_degenerate(self) -> None:
+        mesh = _make_degenerate_mesh()
+        analysis = analyze_mesh(mesh)
+        plan = plan_repair(analysis, mesh)
+        assert plan.degenerate_faces_to_remove >= 1
+
+    def test_returns_repair_plan_type(self) -> None:
+        mesh = _make_cube_mesh()
+        analysis = analyze_mesh(mesh)
+        plan = plan_repair(analysis, mesh)
+        assert isinstance(plan, RepairPlan)
+
+    def test_high_impact_warning_when_large_change(self) -> None:
+        """A mesh where repair changes face count by >5% should set warning."""
+        mesh = _make_open_mesh()
+        analysis = analyze_mesh(mesh)
+        plan = plan_repair(analysis, mesh)
+        # open mesh has 10 faces; filling a hole adds faces. If delta > 5%
+        # of 10 (i.e. > 0.5 faces), warning should be True
+        if abs(plan.estimated_face_delta) > 0:
+            assert plan.high_impact_warning is True
