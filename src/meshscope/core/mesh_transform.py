@@ -117,3 +117,71 @@ def scale_mesh(mesh: MeshData, factor: float) -> TransformResult:
         description=f"Scaled by {factor}x",
         warning=warning,
     )
+
+
+def rotate_mesh(mesh: MeshData, axis: str, degrees: float) -> TransformResult:
+    """Rotate mesh around its center of mass by degrees around the given axis.
+
+    Raises MeshTransformError if axis is not x, y, or z.
+    """
+    axis_lower = axis.lower()
+    if axis_lower not in ("x", "y", "z"):
+        raise MeshTransformError(f"Invalid axis '{axis}'. Must be 'x', 'y', or 'z'.")
+
+    radians = np.radians(degrees)
+    cos_a = np.cos(radians)
+    sin_a = np.sin(radians)
+
+    if axis_lower == "x":
+        rot = np.array(
+            [
+                [1, 0, 0],
+                [0, cos_a, -sin_a],
+                [0, sin_a, cos_a],
+            ],
+            dtype=np.float64,
+        )
+    elif axis_lower == "y":
+        rot = np.array(
+            [
+                [cos_a, 0, sin_a],
+                [0, 1, 0],
+                [-sin_a, 0, cos_a],
+            ],
+            dtype=np.float64,
+        )
+    else:  # z
+        rot = np.array(
+            [
+                [cos_a, -sin_a, 0],
+                [sin_a, cos_a, 0],
+                [0, 0, 1],
+            ],
+            dtype=np.float64,
+        )
+
+    # Rotate around center of mass
+    center = mesh.vertices.mean(axis=0).astype(np.float64)
+    centered = mesh.vertices.astype(np.float64) - center
+    rotated = (centered @ rot.T) + center
+    new_vertices = rotated.astype(np.float32)
+
+    new_normals = _recompute_normals(new_vertices, mesh.faces)
+    new_meta = _recompute_metadata(
+        new_vertices, mesh.faces, is_manifold=mesh.metadata.is_manifold
+    )
+
+    new_mesh = MeshData(
+        vertices=new_vertices,
+        faces=mesh.faces.copy(),
+        normals=new_normals,
+        metadata=new_meta,
+    )
+
+    logger.info("Rotate: axis=%s degrees=%.1f", axis_lower, degrees)
+
+    return TransformResult(
+        mesh=new_mesh,
+        description=f"Rotated {degrees}\u00b0 around {axis_lower.upper()} axis",
+        warning=None,
+    )

@@ -7,6 +7,7 @@ from meshscope.core.mesh_data import BoundingBox, MeshData, MeshMetadata
 from meshscope.core.mesh_transform import (
     TransformResult,
     _recompute_metadata,
+    rotate_mesh,
     scale_mesh,
 )
 
@@ -224,3 +225,63 @@ class TestScaleMesh:
         mesh = _make_cube_mesh()
         result = scale_mesh(mesh, 2.0)
         assert result.mesh.metadata.is_manifold is True
+
+
+class TestRotateMesh:
+    def test_rotate_90_z_swaps_xy(self) -> None:
+        """90° around Z: cube extents should remain the same (symmetric shape)."""
+        mesh = _make_cube_mesh()
+        result = rotate_mesh(mesh, "z", 90.0)
+        bb = result.mesh.metadata.bounding_box
+        assert abs(bb.max_x - bb.min_x - 10.0) < 0.1
+        assert abs(bb.max_y - bb.min_y - 10.0) < 0.1
+        assert abs(bb.max_z - bb.min_z - 10.0) < 0.1
+
+    def test_rotate_360_returns_to_original(self) -> None:
+        mesh = _make_cube_mesh()
+        result = rotate_mesh(mesh, "x", 360.0)
+        np.testing.assert_allclose(result.mesh.vertices, mesh.vertices, atol=1e-4)
+
+    def test_rotate_180_twice_returns_to_original(self) -> None:
+        mesh = _make_cube_mesh()
+        result1 = rotate_mesh(mesh, "y", 180.0)
+        result2 = rotate_mesh(result1.mesh, "y", 180.0)
+        np.testing.assert_allclose(result2.mesh.vertices, mesh.vertices, atol=1e-4)
+
+    def test_rotate_preserves_face_count(self) -> None:
+        mesh = _make_cube_mesh()
+        result = rotate_mesh(mesh, "x", 45.0)
+        assert result.mesh.metadata.face_count == 12
+
+    def test_rotate_preserves_surface_area(self) -> None:
+        mesh = _make_cube_mesh()
+        result = rotate_mesh(mesh, "z", 30.0)
+        assert abs(result.mesh.metadata.surface_area_mm2 - 600.0) < 1.0
+
+    def test_rotate_preserves_volume(self) -> None:
+        mesh = _make_cube_mesh()
+        result = rotate_mesh(mesh, "y", 45.0)
+        assert result.mesh.metadata.volume_mm3 is not None
+        assert abs(result.mesh.metadata.volume_mm3 - 1000.0) < 1.0
+
+    def test_rotate_returns_transform_result(self) -> None:
+        mesh = _make_cube_mesh()
+        result = rotate_mesh(mesh, "x", 90.0)
+        assert isinstance(result, TransformResult)
+        assert "90" in result.description
+        assert "X" in result.description
+
+    def test_rotate_invalid_axis_raises(self) -> None:
+        mesh = _make_cube_mesh()
+        try:
+            rotate_mesh(mesh, "w", 90.0)
+            raise AssertionError("Should have raised MeshTransformError")
+        except MeshTransformError as e:
+            assert "axis" in e.user_message.lower()
+
+    def test_rotate_normals_recomputed(self) -> None:
+        mesh = _make_cube_mesh()
+        result = rotate_mesh(mesh, "x", 90.0)
+        # Normals should be unit vectors
+        norms = np.linalg.norm(result.mesh.normals, axis=1)
+        np.testing.assert_allclose(norms, 1.0, atol=1e-5)
