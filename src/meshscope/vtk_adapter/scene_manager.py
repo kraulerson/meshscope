@@ -7,7 +7,9 @@ configuration. Operates on a vtkRenderer that it receives.
 from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING
 
+import numpy as np
 from vtkmodules.vtkCommonDataModel import vtkPolyData
 from vtkmodules.vtkRenderingCore import (
     vtkActor,
@@ -17,7 +19,11 @@ from vtkmodules.vtkRenderingCore import (
 )
 
 from meshscope.core.mesh_data import BoundingBox
+from meshscope.vtk_adapter.highlight_manager import HighlightManager
 from meshscope.vtk_adapter.print_bed import PrintBedManager, get_overflow_text
+
+if TYPE_CHECKING:
+    from meshscope.core.mesh_analysis import MeshAnalysis
 
 logger = logging.getLogger("meshscope.vtk_adapter.scene_manager")
 
@@ -47,6 +53,9 @@ class SceneManager:
         self._print_bed_actors: list[vtkActor] = []
         self._print_bed_manager = PrintBedManager()
         self._print_bed_visible = False
+        self._highlight_actors: list[vtkActor] = []
+        self._highlight_manager = HighlightManager()
+        self._highlights_visible = False
 
         # Set background color
         self._renderer.SetBackground(*BACKGROUND_COLOR)
@@ -95,6 +104,29 @@ class SceneManager:
         self._wireframe_overlay_enabled = False
         self._smooth_shading_enabled = False
         self.hide_print_bed()
+        self.hide_highlights()
+
+    def show_highlights(
+        self, analysis: MeshAnalysis, vertices: np.ndarray, faces: np.ndarray
+    ) -> None:
+        """Create and add highlight actors for all mesh problems found in analysis."""
+        self.hide_highlights()
+        actors = self._highlight_manager.create_actors(analysis, vertices, faces)
+        self._highlight_actors = actors
+        for actor in actors:
+            self._renderer.AddActor(actor)
+        self._highlights_visible = True
+
+    def hide_highlights(self) -> None:
+        """Remove all highlight actors from the scene."""
+        for actor in self._highlight_actors:
+            self._renderer.RemoveActor(actor)
+        self._highlight_actors.clear()
+        self._highlights_visible = False
+
+    @property
+    def highlights_visible(self) -> bool:
+        return self._highlights_visible
 
     def show_print_bed(self, x: int, y: int, z: int, bbox: BoundingBox) -> str | None:
         """Show print bed volume overlay. Returns overflow text or None."""

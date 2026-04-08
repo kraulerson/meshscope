@@ -226,6 +226,90 @@ class TestSceneManagerDegenerateGeometry:
             sm.fit_to_view()  # must not crash
 
 
+class TestSceneManagerHighlights:
+    def test_highlights_not_visible_initially(self) -> None:
+        renderer = vtkRenderer()
+        sm = SceneManager(renderer)
+        assert sm.highlights_visible is False
+
+    def test_show_highlights(self) -> None:
+        import numpy as np
+
+        from meshscope.core.mesh_analysis import MeshAnalysis
+
+        renderer = vtkRenderer()
+        sm = SceneManager(renderer)
+
+        analysis = MeshAnalysis(
+            is_manifold=False,
+            is_watertight=False,
+            hole_count=1,
+            open_edge_count=2,
+            degenerate_face_count=0,
+            non_manifold_edge_count=0,
+            open_edge_indices=np.array([[0, 1], [1, 2]], dtype=np.int64),
+            non_manifold_edge_indices=np.zeros((0, 2), dtype=np.int64),
+            degenerate_face_indices=np.zeros((0,), dtype=np.int64),
+        )
+        vertices = np.array([[0, 0, 0], [10, 0, 0], [10, 10, 0]], dtype=np.float32)
+        faces = np.array([[0, 1, 2]], dtype=np.uint32)
+
+        sm.show_highlights(analysis, vertices, faces)
+        assert sm.highlights_visible is True
+
+    def test_hide_highlights(self) -> None:
+        import numpy as np
+
+        from meshscope.core.mesh_analysis import MeshAnalysis
+
+        renderer = vtkRenderer()
+        sm = SceneManager(renderer)
+
+        analysis = MeshAnalysis(
+            is_manifold=False,
+            is_watertight=False,
+            hole_count=1,
+            open_edge_count=2,
+            degenerate_face_count=0,
+            non_manifold_edge_count=0,
+            open_edge_indices=np.array([[0, 1], [1, 2]], dtype=np.int64),
+            non_manifold_edge_indices=np.zeros((0, 2), dtype=np.int64),
+            degenerate_face_indices=np.zeros((0,), dtype=np.int64),
+        )
+        vertices = np.array([[0, 0, 0], [10, 0, 0], [10, 10, 0]], dtype=np.float32)
+        faces = np.array([[0, 1, 2]], dtype=np.uint32)
+
+        sm.show_highlights(analysis, vertices, faces)
+        sm.hide_highlights()
+        assert sm.highlights_visible is False
+
+    def test_clear_also_hides_highlights(self) -> None:
+        import numpy as np
+
+        from meshscope.core.mesh_analysis import MeshAnalysis
+
+        renderer = vtkRenderer()
+        sm = SceneManager(renderer)
+
+        analysis = MeshAnalysis(
+            is_manifold=False,
+            is_watertight=False,
+            hole_count=1,
+            open_edge_count=2,
+            degenerate_face_count=0,
+            non_manifold_edge_count=0,
+            open_edge_indices=np.array([[0, 1], [1, 2]], dtype=np.int64),
+            non_manifold_edge_indices=np.zeros((0, 2), dtype=np.int64),
+            degenerate_face_indices=np.zeros((0,), dtype=np.int64),
+        )
+        vertices = np.array([[0, 0, 0], [10, 0, 0], [10, 10, 0]], dtype=np.float32)
+        faces = np.array([[0, 1, 2]], dtype=np.uint32)
+
+        sm.show_highlights(analysis, vertices, faces)
+        sm.clear()
+        assert sm.highlights_visible is False
+
+
 class TestSceneManagerPrintBed:
     def test_print_bed_not_visible_initially(self) -> None:
         renderer = vtkRenderer()
