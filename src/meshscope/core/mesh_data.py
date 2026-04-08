@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 import numpy as np
@@ -65,3 +66,29 @@ class MeshData:
     faces: npt.NDArray[np.uint32]
     normals: npt.NDArray[np.float32]
     metadata: MeshMetadata
+
+
+def compute_distance(
+    point_a: tuple[float, float, float],
+    point_b: tuple[float, float, float],
+) -> float:
+    """Compute Euclidean distance between two 3D points in mm."""
+    dx = point_b[0] - point_a[0]
+    dy = point_b[1] - point_a[1]
+    dz = point_b[2] - point_a[2]
+    return math.sqrt(dx * dx + dy * dy + dz * dz)
+
+
+@dataclass(frozen=True)
+class Measurement:
+    """A point-to-point distance measurement on a mesh surface.
+
+    point_a, point_b: model-space coordinates in mm
+    distance_mm: Euclidean distance between the two points
+    index: display index (1, 2, or 3)
+    """
+
+    point_a: tuple[float, float, float]
+    point_b: tuple[float, float, float]
+    distance_mm: float
+    index: int
