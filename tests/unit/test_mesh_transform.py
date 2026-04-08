@@ -4,7 +4,11 @@ import numpy as np
 
 from meshscope.core.exceptions import MeshTransformError
 from meshscope.core.mesh_data import BoundingBox, MeshData, MeshMetadata
-from meshscope.core.mesh_transform import TransformResult, _recompute_metadata
+from meshscope.core.mesh_transform import (
+    TransformResult,
+    _recompute_metadata,
+    scale_mesh,
+)
 
 
 class TestMeshTransformError:
@@ -140,3 +144,83 @@ class TestRecomputeMetadata:
         faces = _make_cube_faces()
         meta = _recompute_metadata(verts, faces, is_manifold=False)
         assert meta.volume_mm3 is None
+
+
+def _make_cube_mesh() -> MeshData:
+    """Watertight 10mm cube for transform tests."""
+    verts = _make_cube_vertices()
+    faces = _make_cube_faces()
+    normals = np.zeros((12, 3), dtype=np.float32)
+    bb = BoundingBox(0, 0, 0, 10, 10, 10)
+    meta = MeshMetadata(8, 12, bb, 600.0, 1000.0, True)
+    return MeshData(vertices=verts, faces=faces, normals=normals, metadata=meta)
+
+
+class TestScaleMesh:
+    def test_scale_doubles_vertices(self) -> None:
+        mesh = _make_cube_mesh()
+        result = scale_mesh(mesh, 2.0)
+        assert result.mesh.vertices.max() == 20.0
+        assert result.mesh.vertices.min() == 0.0
+
+    def test_scale_halves_vertices(self) -> None:
+        mesh = _make_cube_mesh()
+        result = scale_mesh(mesh, 0.5)
+        assert result.mesh.vertices.max() == 5.0
+
+    def test_scale_updates_bounding_box(self) -> None:
+        mesh = _make_cube_mesh()
+        result = scale_mesh(mesh, 2.0)
+        assert result.mesh.metadata.bounding_box.max_x == 20.0
+        assert result.mesh.metadata.bounding_box.max_y == 20.0
+        assert result.mesh.metadata.bounding_box.max_z == 20.0
+
+    def test_scale_surface_area_scales_by_factor_squared(self) -> None:
+        mesh = _make_cube_mesh()
+        result = scale_mesh(mesh, 3.0)
+        # 600 * 3^2 = 5400
+        assert abs(result.mesh.metadata.surface_area_mm2 - 5400.0) < 1.0
+
+    def test_scale_volume_scales_by_factor_cubed(self) -> None:
+        mesh = _make_cube_mesh()
+        result = scale_mesh(mesh, 2.0)
+        # 1000 * 2^3 = 8000
+        assert result.mesh.metadata.volume_mm3 is not None
+        assert abs(result.mesh.metadata.volume_mm3 - 8000.0) < 1.0
+
+    def test_scale_zero_raises(self) -> None:
+        mesh = _make_cube_mesh()
+        try:
+            scale_mesh(mesh, 0.0)
+            raise AssertionError("Should have raised MeshTransformError")
+        except MeshTransformError as e:
+            assert "greater than zero" in e.user_message
+
+    def test_scale_negative_raises(self) -> None:
+        mesh = _make_cube_mesh()
+        try:
+            scale_mesh(mesh, -1.0)
+            raise AssertionError("Should have raised MeshTransformError")
+        except MeshTransformError as e:
+            assert "greater than zero" in e.user_message
+
+    def test_scale_returns_transform_result(self) -> None:
+        mesh = _make_cube_mesh()
+        result = scale_mesh(mesh, 2.0)
+        assert isinstance(result, TransformResult)
+        assert "2.0" in result.description
+
+    def test_scale_extreme_returns_warning(self) -> None:
+        mesh = _make_cube_mesh()
+        result = scale_mesh(mesh, 20000.0)
+        assert result.warning is not None
+
+    def test_scale_preserves_face_count(self) -> None:
+        mesh = _make_cube_mesh()
+        result = scale_mesh(mesh, 2.0)
+        assert result.mesh.metadata.face_count == 12
+
+    def test_scale_preserves_manifold(self) -> None:
+        mesh = _make_cube_mesh()
+        result = scale_mesh(mesh, 2.0)
+        assert result.mesh.metadata.is_manifold is True

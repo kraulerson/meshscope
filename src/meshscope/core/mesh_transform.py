@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from meshscope.core.exceptions import MeshTransformError
 from meshscope.core.mesh_data import BoundingBox, MeshData, MeshMetadata
 
 logger = logging.getLogger("meshscope.core.mesh_transform")
@@ -64,4 +65,55 @@ def _recompute_metadata(
         surface_area_mm2=surface_area,
         volume_mm3=volume,
         is_manifold=is_manifold,
+    )
+
+
+def _recompute_normals(vertices: np.ndarray, faces: np.ndarray) -> np.ndarray:
+    """Recompute per-face unit normals from vertices and faces."""
+    v0 = vertices[faces[:, 0]]
+    v1 = vertices[faces[:, 1]]
+    v2 = vertices[faces[:, 2]]
+    cross = np.cross(v1 - v0, v2 - v0)
+    norms = np.linalg.norm(cross, axis=1, keepdims=True)
+    # Avoid division by zero for degenerate faces
+    norms = np.where(norms < 1e-10, 1.0, norms)
+    return (cross / norms).astype(np.float32)
+
+
+def scale_mesh(mesh: MeshData, factor: float) -> TransformResult:
+    """Scale all vertices by a uniform factor.
+
+    Raises MeshTransformError if factor <= 0.
+    """
+    if factor <= 0:
+        raise MeshTransformError("Scale factor must be greater than zero.")
+
+    new_vertices = (mesh.vertices * factor).astype(np.float32)
+    new_normals = _recompute_normals(new_vertices, mesh.faces)
+    new_meta = _recompute_metadata(
+        new_vertices, mesh.faces, is_manifold=mesh.metadata.is_manifold
+    )
+
+    new_mesh = MeshData(
+        vertices=new_vertices,
+        faces=mesh.faces.copy(),
+        normals=new_normals,
+        metadata=new_meta,
+    )
+
+    warning: str | None = None
+    if factor > 10000:
+        max_dim = max(
+            new_meta.bounding_box.max_x - new_meta.bounding_box.min_x,
+            new_meta.bounding_box.max_y - new_meta.bounding_box.min_y,
+            new_meta.bounding_box.max_z - new_meta.bounding_box.min_z,
+        )
+        warning = f"Model is now very large ({max_dim:.0f}mm on longest axis)"
+
+    logger.info("Scale: factor=%.4f", factor)
+
+    return TransformResult(
+        mesh=new_mesh,
+        description=f"Scaled by {factor}x",
+        warning=warning,
     )
