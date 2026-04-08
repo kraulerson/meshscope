@@ -89,7 +89,8 @@ def scale_mesh(mesh: MeshData, factor: float) -> TransformResult:
         raise MeshTransformError("Scale factor must be greater than zero.")
 
     new_vertices = (mesh.vertices * factor).astype(np.float32)
-    new_normals = _recompute_normals(new_vertices, mesh.faces)
+    # Uniform scaling preserves normal directions — no need to recompute
+    new_normals = mesh.normals.copy()
     new_meta = _recompute_metadata(
         new_vertices, mesh.faces, is_manifold=mesh.metadata.is_manifold
     )

@@ -230,13 +230,19 @@ class TestScaleMesh:
 
 class TestRotateMesh:
     def test_rotate_90_z_swaps_xy(self) -> None:
-        """90° around Z: cube extents should remain the same (symmetric shape)."""
+        """90° CCW around Z: (10,0,0) centered=(5,-5,0) -> rot=(5,5,0) -> (10,10,0)."""
         mesh = _make_cube_mesh()
         result = rotate_mesh(mesh, "z", 90.0)
-        bb = result.mesh.metadata.bounding_box
-        assert abs(bb.max_x - bb.min_x - 10.0) < 0.1
-        assert abs(bb.max_y - bb.min_y - 10.0) < 0.1
-        assert abs(bb.max_z - bb.min_z - 10.0) < 0.1
+        # Vertex (10,0,0) should rotate to (10,10,0)
+        expected = np.array([10, 10, 0], dtype=np.float32)
+        dists = np.linalg.norm(result.mesh.vertices - expected, axis=1)
+        assert dists.min() < 0.01, "Vertex (10,0,0) should have rotated to (10,10,0)"
+        # Z coordinates unchanged by Z-axis rotation
+        np.testing.assert_allclose(
+            np.sort(result.mesh.vertices[:, 2]),
+            np.sort(mesh.vertices[:, 2]),
+            atol=1e-4,
+        )
 
     def test_rotate_360_returns_to_original(self) -> None:
         mesh = _make_cube_mesh()
