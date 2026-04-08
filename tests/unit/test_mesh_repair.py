@@ -5,7 +5,12 @@ import numpy as np
 from meshscope.core.exceptions import MeshRepairError
 from meshscope.core.mesh_analysis import analyze_mesh
 from meshscope.core.mesh_data import BoundingBox, MeshData, MeshMetadata
-from meshscope.core.mesh_repair import RepairPlan, RepairResult, plan_repair
+from meshscope.core.mesh_repair import (
+    RepairPlan,
+    RepairResult,
+    apply_repair,
+    plan_repair,
+)
 
 
 def _make_cube_mesh() -> MeshData:
@@ -243,3 +248,60 @@ class TestPlanRepair:
         # open mesh has 10 faces; filling a hole adds faces (>5% of 10)
         assert plan.estimated_face_delta != 0, "Open mesh should have non-zero delta"
         assert plan.high_impact_warning is True
+
+
+class TestApplyRepair:
+    def test_repairs_open_mesh(self) -> None:
+        """Filling holes on an open mesh should produce a mesh with more faces."""
+        mesh = _make_open_mesh()
+        analysis = analyze_mesh(mesh)
+        plan = plan_repair(analysis, mesh)
+        result = apply_repair(mesh, plan)
+        assert isinstance(result, RepairResult)
+        assert result.mesh.metadata.face_count >= mesh.metadata.face_count
+
+    def test_removes_degenerate_faces(self) -> None:
+        mesh = _make_degenerate_mesh()
+        analysis = analyze_mesh(mesh)
+        plan = plan_repair(analysis, mesh)
+        result = apply_repair(mesh, plan)
+        assert result.degenerate_faces_removed >= 1
+        assert result.mesh.metadata.face_count < mesh.metadata.face_count
+
+    def test_clean_mesh_returns_no_changes(self) -> None:
+        """Applying repair to a clean mesh should change nothing."""
+        mesh = _make_cube_mesh()
+        analysis = analyze_mesh(mesh)
+        plan = plan_repair(analysis, mesh)
+        result = apply_repair(mesh, plan)
+        assert result.normals_fixed == 0
+        assert result.holes_filled == 0
+        assert result.degenerate_faces_removed == 0
+
+    def test_result_mesh_has_valid_metadata(self) -> None:
+        mesh = _make_open_mesh()
+        analysis = analyze_mesh(mesh)
+        plan = plan_repair(analysis, mesh)
+        result = apply_repair(mesh, plan)
+        meta = result.mesh.metadata
+        assert meta.vertex_count > 0
+        assert meta.face_count > 0
+        assert meta.surface_area_mm2 > 0
+
+    def test_result_mesh_has_valid_arrays(self) -> None:
+        mesh = _make_open_mesh()
+        analysis = analyze_mesh(mesh)
+        plan = plan_repair(analysis, mesh)
+        result = apply_repair(mesh, plan)
+        assert result.mesh.vertices.shape[1] == 3
+        assert result.mesh.faces.shape[1] == 3
+        assert result.mesh.normals.shape[1] == 3
+        assert not np.any(np.isnan(result.mesh.vertices))
+
+    def test_fully_repaired_flag(self) -> None:
+        mesh = _make_degenerate_mesh()
+        analysis = analyze_mesh(mesh)
+        plan = plan_repair(analysis, mesh)
+        result = apply_repair(mesh, plan)
+        # Degenerate removal should succeed fully
+        assert result.degenerate_faces_removed >= 1

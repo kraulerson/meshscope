@@ -9,9 +9,11 @@ from typing import TYPE_CHECKING
 import numpy as np
 import trimesh
 
+from meshscope.core.exceptions import MeshRepairError
+from meshscope.core.mesh_data import BoundingBox, MeshData, MeshMetadata
+
 if TYPE_CHECKING:
     from meshscope.core.mesh_analysis import MeshAnalysis
-    from meshscope.core.mesh_data import MeshData
 
 logger = logging.getLogger("meshscope.core.mesh_repair")
 
@@ -89,4 +91,116 @@ def plan_repair(analysis: MeshAnalysis, mesh: MeshData) -> RepairPlan:
         degenerate_faces_to_remove=degen,
         estimated_face_delta=estimated_delta,
         high_impact_warning=high_impact,
+    )
+
+
+def apply_repair(mesh: MeshData, plan: RepairPlan) -> RepairResult:
+    """Apply planned repairs to a mesh and return the repaired result.
+
+    Operations are applied in order:
+    1. Remove degenerate faces (zero-area)
+    2. Fix normals (consistent outward orientation)
+    3. Fill holes
+
+    Raises MeshRepairError if all operations fail.
+    """
+    tm = trimesh.Trimesh(
+        vertices=np.array(mesh.vertices, dtype=np.float64),
+        faces=np.array(mesh.faces, dtype=np.int64),
+        process=False,
+    )
+
+    normals_fixed = 0
+    holes_filled = 0
+    degenerate_removed = 0
+    remaining: list[str] = []
+
+    # 1. Remove degenerate faces
+    if plan.degenerate_faces_to_remove > 0:
+        faces_before = len(tm.faces)
+        try:
+            tm.remove_degenerate_faces()
+            degenerate_removed = faces_before - len(tm.faces)
+        except Exception:
+            remaining.append("Could not remove degenerate faces")
+            logger.exception("Failed to remove degenerate faces")
+
+    # 2. Fix normals
+    if plan.flipped_normal_count > 0:
+        try:
+            faces_before_fix = tm.faces.copy()
+            trimesh.repair.fix_normals(tm)
+            normals_fixed = int(np.sum(np.any(tm.faces != faces_before_fix, axis=1)))
+        except Exception:
+            remaining.append("Could not fix normals")
+            logger.exception("Failed to fix normals")
+
+    # 3. Fill holes
+    if plan.holes_to_fill > 0:
+        try:
+            faces_before_fill = len(tm.faces)
+            trimesh.repair.fill_holes(tm)
+            faces_added = len(tm.faces) - faces_before_fill
+            if faces_added > 0:
+                holes_filled = plan.holes_to_fill
+            else:
+                remaining.append("Holes could not be filled (too large or complex)")
+        except Exception:
+            remaining.append("Could not fill holes")
+            logger.exception("Failed to fill holes")
+
+    # Check if all operations failed
+    total_fixed = normals_fixed + holes_filled + degenerate_removed
+    if total_fixed == 0 and remaining:
+        raise MeshRepairError(
+            "All repair operations failed. Original mesh is unchanged."
+        )
+
+    # Build new MeshData from repaired trimesh
+    repaired_vertices = np.asarray(tm.vertices, dtype=np.float32)
+    repaired_faces = np.asarray(tm.faces, dtype=np.uint32)
+    repaired_normals = np.asarray(tm.face_normals, dtype=np.float32)
+
+    if np.any(np.isnan(repaired_vertices)):
+        raise MeshRepairError(
+            "Repair produced invalid geometry. Original mesh is unchanged."
+        )
+
+    bounds = tm.bounds
+    bbox = BoundingBox(
+        min_x=float(bounds[0][0]),
+        min_y=float(bounds[0][1]),
+        min_z=float(bounds[0][2]),
+        max_x=float(bounds[1][0]),
+        max_y=float(bounds[1][1]),
+        max_z=float(bounds[1][2]),
+    )
+    is_manifold = bool(tm.is_volume)
+    volume = float(tm.volume) if is_manifold else None
+
+    metadata = MeshMetadata(
+        vertex_count=len(repaired_vertices),
+        face_count=len(repaired_faces),
+        bounding_box=bbox,
+        surface_area_mm2=float(tm.area),
+        volume_mm3=volume,
+        is_manifold=is_manifold,
+    )
+
+    new_mesh = MeshData(
+        vertices=repaired_vertices,
+        faces=repaired_faces,
+        normals=repaired_normals,
+        metadata=metadata,
+    )
+
+    remaining_text = "; ".join(remaining) if remaining else None
+
+    return RepairResult(
+        mesh=new_mesh,
+        normals_fixed=normals_fixed,
+        holes_filled=holes_filled,
+        degenerate_faces_removed=degenerate_removed,
+        fully_repaired=len(remaining) == 0,
+        remaining_issues=remaining_text,
     )
