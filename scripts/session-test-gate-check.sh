@@ -4,6 +4,22 @@
 # Only outputs when something needs attention.
 set -euo pipefail
 
+# Reset tool usage tracking for new session
+TOOL_USAGE=".claude/tool-usage.json"
+if command -v jq &>/dev/null; then
+  SESSION_ID=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+  mkdir -p .claude
+  cat > "$TOOL_USAGE" << TUEOF
+{
+  "session_id": "$SESSION_ID",
+  "calls": [],
+  "commits_since_last_context7": 0,
+  "qdrant_find_called": false,
+  "qdrant_store_called": false
+}
+TUEOF
+fi
+
 PHASE_STATE=".claude/phase-state.json"
 BUILD_PROGRESS=".claude/build-progress.json"
 
@@ -67,5 +83,17 @@ After each feature completion, you MUST run:
 
 Ask the Orchestrator how many features have been completed so you can record them now.
 EOF
+  fi
+fi
+
+# Context Health Check reminder
+PROGRESS_FILE=".claude/build-progress.json"
+if [ -f "$PROGRESS_FILE" ] && command -v jq &>/dev/null; then
+  health_count=$(jq '.features_since_last_health_check // 0' "$PROGRESS_FILE" 2>/dev/null)
+  if [ "$health_count" -ge 3 ] 2>/dev/null; then
+    echo ""
+    echo -e "\033[33m[REMINDER]\033[0m Context Health Check recommended — $health_count features since last check."
+    echo "  Verify PROJECT_BIBLE.md still accurately reflects the codebase."
+    echo "  After checking: scripts/test-gate.sh --reset-health-check"
   fi
 fi

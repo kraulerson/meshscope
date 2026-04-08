@@ -531,7 +531,7 @@ The framework is built on and tested with Claude Code (Anthropic). This is not a
 - Periodically verify that `PROJECT_BIBLE.md` produces coherent output on a secondary model (e.g., GPT, Gemini, or open-source). If the Bible is well-written, the project is recoverable regardless of which agent built it.
 - Maintain all documentation in model-agnostic formats (Markdown, not Claude-specific notation).
 - Do not embed Claude-specific prompt engineering into the Project Bible itself — it should be a technical specification, not a prompt.
-- The Claude Dev Framework (Git hooks) is not Claude-specific — it works with any development workflow.
+- The Development Guardrails for Claude Code (Git hooks) are not Claude-specific — they work with any development workflow.
 - Budget for annual requalification: test the full workflow on an alternative agent to verify the exit path remains viable.
 
 **Annual cross-model validation (required for organizational deployments):**
@@ -915,12 +915,17 @@ The framework generates the following documentation artifacts across the project
 
 | Artifact | Phase | Purpose | Audit Value |
 |---|---|---|---|
+| `CLAUDE.md` | 0 | AI agent operating instructions and project context | Process consistency evidence |
+| `PROJECT_INTAKE.md` | 0 | Product definition, constraints, and requirements | Requirements baseline |
 | `PRODUCT_MANIFESTO.md` | 0 | What the product does, for whom, and why | Business justification evidence |
 | Compliance Screening Matrix | 0 | Regulatory applicability assessment | Compliance due diligence |
 | `APPROVAL_LOG.md` | 0-4 | Structured record of all pre-condition and phase gate approvals | Governance trail — append-only, machine-parseable |
+| Phase Gate Snapshots | 0-4 | Point-in-time snapshots of key documents at each phase gate | Immutable audit record per phase |
 | In-Phase Decision Log | 2 | Record of significant decisions during construction | Decision audit trail |
 | `PROJECT_BIBLE.md` | 1 | Complete technical specification including test strategy | Architecture decision evidence |
 | Architecture Decision Records | 1-2 | Every major technology/design choice | Technical justification |
+| `FEATURES.md` | 2+ | Living feature reference — what the product does and doesn't do | Feature scope evidence |
+| `BUGS.md` | 2+ | Bug tracking — open, in-progress, and resolved issues | Defect management evidence |
 | `docs/test-results/` | 3 | Archived scan reports, E2E results, accessibility audits, threat model validation | Test execution evidence — audit-grade |
 | Security Audit Logs | 3 | SAST/DAST results, remediation actions | Security due diligence |
 | `sbom.json` | 3 | Software Bill of Materials | Supply chain transparency |

@@ -1,0 +1,24 @@
+{
+  "session_id": "2026-04-08T21:47:52Z",
+  "calls": [
+    {
+      "tool": "mcp__qdrant__qdrant-store",
+      "timestamp": "2026-04-08T22:04:03Z"
+    },
+    {
+      "tool": "mcp__qdrant__qdrant-store",
+      "timestamp": "2026-04-08T22:04:07Z"
+    },
+    {
+      "tool": "mcp__qdrant__qdrant-store",
+      "timestamp": "2026-04-08T22:04:14Z"
+    },
+    {
+      "tool": "mcp__qdrant__qdrant-store",
+      "timestamp": "2026-04-08T22:04:20Z"
+    }
+  ],
+  "commits_since_last_context7": 0,
+  "qdrant_find_called": false,
+  "qdrant_store_called": true
+}
