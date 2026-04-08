@@ -28,10 +28,11 @@
   .btn.pass-btn.active { background: #a6e3a1; color: #1e1e2e; border-color: #a6e3a1; font-weight: 600; }
   .btn.fail-btn.active { background: #f38ba8; color: #1e1e2e; border-color: #f38ba8; font-weight: 600; }
   .btn.skip-btn.active { background: #f9e2af; color: #1e1e2e; border-color: #f9e2af; font-weight: 600; }
-  .scenario-details { padding: 0 16px 12px 16px; display: none; }
+  .scenario-details { padding: 0 16px 8px 16px; display: none; }
   .scenario-details.open { display: block; }
   .steps { background: #11111b; padding: 10px 14px; border-radius: 4px; font-size: 0.85rem; color: #a6adc8; margin-bottom: 8px; }
   .steps strong { color: #cdd6f4; }
+  .scenario-notes { padding: 4px 16px 12px 16px; }
   .notes-input { width: 100%; background: #11111b; border: 1px solid #45475a; color: #cdd6f4; padding: 8px 12px; border-radius: 4px; font-size: 0.85rem; font-family: inherit; resize: vertical; min-height: 36px; }
   .notes-input:focus { outline: none; border-color: #89b4fa; }
   .toggle-details { background: none; border: none; color: #6c7086; cursor: pointer; font-size: 0.75rem; padding: 4px 8px; }
@@ -242,7 +243,9 @@ function renderScenarios() {
       '<div class="scenario-details" id="details-' + s.id + '">' +
         '<div class="steps"><strong>Steps:</strong><br>' + s.steps.replace(/\n/g,'<br>') + '</div>' +
         '<div class="steps"><strong>Expected:</strong><br>' + s.expected + '</div>' +
-        '<textarea class="notes-input" id="notes-' + s.id + '" placeholder="Notes (optional)"></textarea>' +
+      '</div>' +
+      '<div class="scenario-notes">' +
+        '<textarea class="notes-input" id="notes-' + s.id + '" placeholder="Notes — observations, issues, anything worth recording"></textarea>' +
       '</div>' +
     '</div>';
   });
