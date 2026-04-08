@@ -536,3 +536,43 @@ class TestMainWindowRepair:
         bad.write_bytes(b"not a real stl file")
         window._load_file(bad)
         assert not window.repair_action.isEnabled()
+
+
+class TestMainWindowTransform:
+    def test_transform_action_exists(self, window: MainWindow) -> None:
+        assert hasattr(window, "transform_action")
+
+    def test_transform_action_disabled_initially(self, window: MainWindow) -> None:
+        assert not window.transform_action.isEnabled()
+
+    def test_transform_shortcut_is_ctrl_t(self, window: MainWindow) -> None:
+        assert window.transform_action.shortcut() == QKeySequence("Ctrl+T")
+
+    def test_transform_enabled_after_load(self, window: MainWindow) -> None:
+        fixtures = Path(__file__).parent.parent / "fixtures" / "valid"
+        window._load_file(fixtures / "cube.stl")
+        assert window.transform_action.isEnabled()
+
+    def test_transform_in_edit_menu(self, window: MainWindow) -> None:
+        edit_menu = None
+        for action in window.menuBar().actions():
+            if "Edit" in action.text():
+                edit_menu = action.menu()
+                break
+        assert edit_menu is not None
+        action_texts = [a.text() for a in edit_menu.actions()]
+        assert any("Transform" in t for t in action_texts)
+
+    def test_transform_in_toolbar(self, window: MainWindow) -> None:
+        toolbar_actions = [a.text() for a in window.toolbar.actions()]
+        assert any("Transform" in t for t in toolbar_actions)
+
+    def test_transform_disabled_after_error(
+        self, window: MainWindow, tmp_path: Path
+    ) -> None:
+        fixtures = Path(__file__).parent.parent / "fixtures" / "valid"
+        window._load_file(fixtures / "cube.stl")
+        bad = tmp_path / "bad.stl"
+        bad.write_bytes(b"not a real stl file")
+        window._load_file(bad)
+        assert not window.transform_action.isEnabled()

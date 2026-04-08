@@ -59,3 +59,11 @@ class MeshRepairError(Exception):
     def __init__(self, user_message: str) -> None:
         self.user_message = user_message
         super().__init__(user_message)
+
+
+class MeshTransformError(Exception):
+    """Base exception for all mesh transform failures."""
+
+    def __init__(self, user_message: str) -> None:
+        self.user_message = user_message
+        super().__init__(user_message)
