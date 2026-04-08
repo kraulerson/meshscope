@@ -22,10 +22,11 @@ from PySide6.QtWidgets import (
 )
 
 from meshscope.core.config import load_config, save_config
-from meshscope.core.exceptions import MeshExportError, MeshLoadError
+from meshscope.core.exceptions import MeshExportError, MeshLoadError, MeshRepairError
 from meshscope.core.mesh_analysis import analyze_mesh
 from meshscope.core.mesh_exporter import check_symlink, export_mesh, get_format_warning
 from meshscope.core.mesh_loader import load_mesh
+from meshscope.core.mesh_repair import apply_repair, plan_repair
 from meshscope.ui.info_panel import InfoPanel
 from meshscope.ui.viewport_widget import ViewportWidget
 from meshscope.vtk_adapter.mesh_adapter import mesh_data_to_polydata
@@ -157,6 +158,24 @@ class MainWindow(QMainWindow):
         self.analyze_action.setToolTip("Analyze mesh for printability issues")
         self.analyze_action.triggered.connect(self._on_analyze)
 
+        self.undo_action = QAction("Undo", self)
+        self.undo_action.setShortcut(QKeySequence("Ctrl+Z"))
+        self.undo_action.setEnabled(False)
+        self.undo_action.setToolTip("Undo last mesh modification")
+        self.undo_action.triggered.connect(self._on_undo)
+
+        self.redo_action = QAction("Redo", self)
+        self.redo_action.setShortcut(QKeySequence("Ctrl+Shift+Z"))
+        self.redo_action.setEnabled(False)
+        self.redo_action.setToolTip("Redo last undone modification")
+        self.redo_action.triggered.connect(self._on_redo)
+
+        self.repair_action = QAction("Repair", self)
+        self.repair_action.setShortcut(QKeySequence("R"))
+        self.repair_action.setEnabled(False)
+        self.repair_action.setToolTip("Repair mesh issues found by analysis")
+        self.repair_action.triggered.connect(self._on_repair)
+
     # --- Menus ---
 
     def _create_menus(self) -> None:
@@ -165,6 +184,10 @@ class MainWindow(QMainWindow):
         file_menu.addAction(self.export_action)
         file_menu.addSeparator()
         file_menu.addAction(self.exit_action)
+
+        edit_menu = self.menuBar().addMenu("&Edit")
+        edit_menu.addAction(self.undo_action)
+        edit_menu.addAction(self.redo_action)
 
         view_menu = self.menuBar().addMenu("&View")
         view_menu.addAction(self.wireframe_action)
@@ -179,6 +202,7 @@ class MainWindow(QMainWindow):
         view_menu.addSeparator()
         view_menu.addAction(self.bed_action)
         view_menu.addAction(self.analyze_action)
+        view_menu.addAction(self.repair_action)
 
         help_menu = self.menuBar().addMenu("&Help")
         about_action = QAction("About", self)
@@ -197,6 +221,8 @@ class MainWindow(QMainWindow):
 
         self.toolbar.addAction(self.open_action)
         self.toolbar.addAction(self.export_action)
+        self.toolbar.addAction(self.undo_action)
+        self.toolbar.addAction(self.redo_action)
         self.toolbar.addSeparator()
         self.toolbar.addAction(self.wireframe_action)
         self.toolbar.addAction(self.shading_action)
@@ -221,6 +247,7 @@ class MainWindow(QMainWindow):
 
         self.toolbar.addSeparator()
         self.toolbar.addAction(self.analyze_action)
+        self.toolbar.addAction(self.repair_action)
 
     # --- File loading ---
 
@@ -253,6 +280,7 @@ class MainWindow(QMainWindow):
         self._info_panel.clear_analysis()
         self._viewport.scene_manager.hide_highlights()
         self._info_panel.set_document(doc)
+        self._update_undo_state()
 
         polydata = mesh_data_to_polydata(doc.mesh)
         self._viewport.scene_manager.display_mesh(polydata)
@@ -301,6 +329,10 @@ class MainWindow(QMainWindow):
         self.bed_action.setEnabled(enabled)
         self.bed_preset_combo.setEnabled(enabled)
         self.analyze_action.setEnabled(enabled)
+        self.repair_action.setEnabled(False)
+        if not enabled:
+            self.undo_action.setEnabled(False)
+            self.redo_action.setEnabled(False)
 
     # --- Toolbar callbacks ---
 
@@ -355,6 +387,8 @@ class MainWindow(QMainWindow):
                 self._viewport.scene_manager.hide_highlights()
                 self._viewport.vtk_render()
 
+            self._update_repair_state()
+
         except Exception as e:
             self.statusBar().showMessage(f"Analysis failed: {e}")
             logger.exception("Analysis failed")
@@ -374,6 +408,219 @@ class MainWindow(QMainWindow):
         else:
             self._viewport.scene_manager.hide_highlights()
         self._viewport.vtk_render()
+
+    def _on_undo(self) -> None:
+        """Restore the previous mesh state."""
+        if self._document is None or not self._document.undo_stack.can_undo():
+            return
+
+        restored = self._document.undo_stack.undo_swap(self._document.mesh)
+        if restored is None:
+            return
+
+        self._document.mesh = restored
+        self._document.analysis = None
+
+        polydata = mesh_data_to_polydata(self._document.mesh)
+        self._viewport.scene_manager.display_mesh(polydata)
+        self._viewport.vtk_render()
+
+        self._info_panel.set_document(self._document)
+        self._info_panel.clear_analysis()
+        self._viewport.scene_manager.hide_highlights()
+
+        self._update_undo_state()
+        self._update_repair_state()
+
+        # Refresh print bed if visible
+        if self.bed_action.isChecked():
+            self._on_bed_toggled(True)
+
+        self.statusBar().showMessage("Undo: mesh restored")
+
+    def _on_redo(self) -> None:
+        """Re-apply the last undone modification."""
+        if self._document is None or not self._document.undo_stack.can_redo():
+            return
+
+        redone = self._document.undo_stack.redo_swap(self._document.mesh)
+        if redone is None:
+            return
+
+        self._document.mesh = redone
+        self._document.analysis = None
+
+        polydata = mesh_data_to_polydata(self._document.mesh)
+        self._viewport.scene_manager.display_mesh(polydata)
+        self._viewport.vtk_render()
+
+        self._info_panel.set_document(self._document)
+        self._info_panel.clear_analysis()
+        self._viewport.scene_manager.hide_highlights()
+
+        self._update_undo_state()
+        self._update_repair_state()
+
+        # Refresh print bed if visible
+        if self.bed_action.isChecked():
+            self._on_bed_toggled(True)
+
+        self.statusBar().showMessage("Redo: modification reapplied")
+
+    def _update_undo_state(self) -> None:
+        """Enable/disable undo and redo actions based on stack state."""
+        if self._document is None:
+            self.undo_action.setEnabled(False)
+            self.redo_action.setEnabled(False)
+            return
+        self.undo_action.setEnabled(self._document.undo_stack.can_undo())
+        self.redo_action.setEnabled(self._document.undo_stack.can_redo())
+
+    def _update_repair_state(self) -> None:
+        """Enable/disable repair action based on analysis results."""
+        if self._document is None or self._document.analysis is None:
+            self.repair_action.setEnabled(False)
+            return
+        a = self._document.analysis
+        has_fixable = (
+            a.hole_count > 0 or a.degenerate_face_count > 0 or a.open_edge_count > 0
+        )
+        self.repair_action.setEnabled(has_fixable)
+
+    def _on_repair(self) -> None:
+        """Run mesh repair workflow: plan -> confirm -> apply -> re-analyze."""
+        if self._document is None or self._document.analysis is None:
+            return
+
+        # Plan
+        try:
+            plan = plan_repair(self._document.analysis, self._document.mesh)
+        except Exception as e:
+            self.statusBar().showMessage(f"Repair planning failed: {e}")
+            logger.exception("Repair planning failed")
+            return
+
+        # Build confirmation dialog
+        lines: list[str] = []
+        if plan.flipped_normal_count > 0:
+            lines.append(f"Fix {plan.flipped_normal_count} flipped normal(s)")
+        if plan.holes_to_fill > 0:
+            lines.append(f"Fill {plan.holes_to_fill} hole(s)")
+        if plan.degenerate_faces_to_remove > 0:
+            lines.append(f"Remove {plan.degenerate_faces_to_remove} degenerate face(s)")
+
+        if not lines:
+            self.statusBar().showMessage("No repairs needed — mesh is already clean.")
+            return
+
+        body = "The following repairs will be applied:\n\n"
+        body += "\n".join(f"  \u2022 {line}" for line in lines)
+
+        if plan.high_impact_warning and self._document.mesh.metadata.face_count > 0:
+            pct = (
+                abs(plan.estimated_face_delta)
+                / self._document.mesh.metadata.face_count
+                * 100
+            )
+            body += (
+                f"\n\nWarning: Face count will change by {pct:.0f}%. "
+                "Review results carefully."
+            )
+
+        result = QMessageBox.warning(
+            self,
+            "Repair Mesh",
+            body,
+            QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel,
+        )
+        if result != QMessageBox.StandardButton.Ok:
+            return
+
+        # Apply
+        try:
+            repair_result = apply_repair(self._document.mesh, plan)
+        except MeshRepairError as e:
+            self.statusBar().showMessage(f"Repair failed: {e.user_message}")
+            logger.error("Repair failed: %s", e.user_message)
+            return
+        except Exception as e:
+            self.statusBar().showMessage(f"Repair failed: {e}")
+            logger.exception("Repair failed")
+            return
+
+        # Check for no-op
+        total_changes = (
+            repair_result.normals_fixed
+            + repair_result.holes_filled
+            + repair_result.degenerate_faces_removed
+        )
+        if total_changes == 0:
+            self.statusBar().showMessage("No repairs needed — mesh is already clean.")
+            return
+
+        # Push pre-repair state for undo, then replace mesh
+        self._document.undo_stack.push(self._document.mesh)
+        self._document.mesh = repair_result.mesh
+
+        # Update viewport
+        polydata = mesh_data_to_polydata(self._document.mesh)
+        self._viewport.scene_manager.display_mesh(polydata)
+        self._viewport.vtk_render()
+
+        # Update info panel with new mesh metadata
+        self._info_panel.set_document(self._document)
+
+        # Auto re-analyze
+        try:
+            analysis = analyze_mesh(self._document.mesh)
+            self._document.analysis = analysis
+            self._info_panel.show_analysis(analysis)
+
+            total_issues = (
+                analysis.open_edge_count
+                + analysis.non_manifold_edge_count
+                + analysis.degenerate_face_count
+                + analysis.hole_count
+            )
+            if total_issues > 0:
+                self._viewport.scene_manager.show_highlights(
+                    analysis,
+                    self._document.mesh.vertices,
+                    self._document.mesh.faces,
+                )
+            else:
+                self._viewport.scene_manager.hide_highlights()
+            self._viewport.vtk_render()
+        except Exception:
+            logger.exception("Post-repair analysis failed")
+
+        # Update action states
+        self._update_undo_state()
+        self._update_repair_state()
+
+        # Refresh print bed if visible
+        if self.bed_action.isChecked():
+            self._on_bed_toggled(True)
+
+        # Status bar
+        parts: list[str] = []
+        if repair_result.normals_fixed > 0:
+            parts.append(f"{repair_result.normals_fixed} normals fixed")
+        if repair_result.holes_filled > 0:
+            parts.append(f"{repair_result.holes_filled} holes filled")
+        if repair_result.degenerate_faces_removed > 0:
+            parts.append(
+                f"{repair_result.degenerate_faces_removed} degenerate faces removed"
+            )
+        summary = ", ".join(parts)
+
+        if repair_result.fully_repaired:
+            self.statusBar().showMessage(f"Repair complete — {summary}")
+        else:
+            self.statusBar().showMessage(
+                f"Repair partially complete — {summary}. "
+                "Some issues remain. See analysis panel."
+            )
 
     def _on_export(self) -> None:
         """Handle Export As action."""

@@ -441,3 +441,98 @@ class TestUAT3Regressions:
             "UAT3-002: bed_action must remain checked after a new file load. "
             "_set_render_actions_enabled must not call bed_action.setChecked(False)."
         )
+
+
+class TestMainWindowUndoRedo:
+    def test_undo_action_exists(self, window: MainWindow) -> None:
+        assert hasattr(window, "undo_action")
+
+    def test_redo_action_exists(self, window: MainWindow) -> None:
+        assert hasattr(window, "redo_action")
+
+    def test_undo_disabled_initially(self, window: MainWindow) -> None:
+        assert not window.undo_action.isEnabled()
+
+    def test_redo_disabled_initially(self, window: MainWindow) -> None:
+        assert not window.redo_action.isEnabled()
+
+    def test_undo_shortcut_is_ctrl_z(self, window: MainWindow) -> None:
+        assert window.undo_action.shortcut() == QKeySequence("Ctrl+Z")
+
+    def test_redo_shortcut_is_ctrl_shift_z(self, window: MainWindow) -> None:
+        assert window.redo_action.shortcut() == QKeySequence("Ctrl+Shift+Z")
+
+    def test_edit_menu_exists(self, window: MainWindow) -> None:
+        menus = [a.text() for a in window.menuBar().actions()]
+        assert any("Edit" in m for m in menus)
+
+    def test_edit_menu_has_undo_and_redo(self, window: MainWindow) -> None:
+        edit_menu = None
+        for action in window.menuBar().actions():
+            if "Edit" in action.text():
+                edit_menu = action.menu()
+                break
+        assert edit_menu is not None
+        action_texts = [a.text() for a in edit_menu.actions()]
+        assert any("Undo" in t for t in action_texts)
+        assert any("Redo" in t for t in action_texts)
+
+    def test_undo_redo_in_toolbar(self, window: MainWindow) -> None:
+        toolbar_actions = [a.text() for a in window.toolbar.actions()]
+        assert any("Undo" in t for t in toolbar_actions)
+        assert any("Redo" in t for t in toolbar_actions)
+
+    def test_undo_disabled_after_file_load(self, window: MainWindow) -> None:
+        """Fresh document has empty undo stack."""
+        fixtures = Path(__file__).parent.parent / "fixtures" / "valid"
+        window._load_file(fixtures / "cube.stl")
+        assert not window.undo_action.isEnabled()
+        assert not window.redo_action.isEnabled()
+
+
+class TestMainWindowRepair:
+    def test_repair_action_exists(self, window: MainWindow) -> None:
+        assert hasattr(window, "repair_action")
+
+    def test_repair_action_disabled_initially(self, window: MainWindow) -> None:
+        assert not window.repair_action.isEnabled()
+
+    def test_repair_shortcut_is_r(self, window: MainWindow) -> None:
+        assert window.repair_action.shortcut() == QKeySequence("R")
+
+    def test_repair_disabled_after_load_no_analysis(self, window: MainWindow) -> None:
+        """Repair requires analysis to have been run."""
+        fixtures = Path(__file__).parent.parent / "fixtures" / "valid"
+        window._load_file(fixtures / "cube.stl")
+        assert not window.repair_action.isEnabled()
+
+    def test_repair_disabled_after_clean_analysis(self, window: MainWindow) -> None:
+        """Repair disabled when analysis finds no issues."""
+        fixtures = Path(__file__).parent.parent / "fixtures" / "valid"
+        window._load_file(fixtures / "cube.stl")
+        window.analyze_action.trigger()
+        assert not window.repair_action.isEnabled()
+
+    def test_repair_action_in_view_menu(self, window: MainWindow) -> None:
+        view_menu = None
+        for action in window.menuBar().actions():
+            if "View" in action.text():
+                view_menu = action.menu()
+                break
+        assert view_menu is not None
+        action_texts = [a.text() for a in view_menu.actions()]
+        assert any("Repair" in t for t in action_texts)
+
+    def test_repair_action_in_toolbar(self, window: MainWindow) -> None:
+        toolbar_actions = [a.text() for a in window.toolbar.actions()]
+        assert any("Repair" in t for t in toolbar_actions)
+
+    def test_repair_disabled_after_error(
+        self, window: MainWindow, tmp_path: Path
+    ) -> None:
+        fixtures = Path(__file__).parent.parent / "fixtures" / "valid"
+        window._load_file(fixtures / "cube.stl")
+        bad = tmp_path / "bad.stl"
+        bad.write_bytes(b"not a real stl file")
+        window._load_file(bad)
+        assert not window.repair_action.isEnabled()
