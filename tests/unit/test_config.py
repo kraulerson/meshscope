@@ -25,6 +25,16 @@ class TestAppConfigDefaults:
         config.set("print_bed", "preset", "prusa_mk4")
         assert config.get("print_bed", "preset") == "prusa_mk4"
 
+    def test_version_returns_int(self) -> None:
+        config = AppConfig()
+        assert isinstance(config.version, int)
+
+    def test_to_dict_returns_dict(self) -> None:
+        config = AppConfig()
+        result = config.to_dict()
+        assert isinstance(result, dict)
+        assert "version" in result
+
 
 class TestConfigSaveLoad:
     def test_save_and_load_roundtrip(self, tmp_path: Path) -> None:

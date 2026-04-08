@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from vtkmodules.vtkCommonCore import vtkPoints
 from vtkmodules.vtkCommonDataModel import vtkCellArray, vtkLine, vtkPolyData
@@ -11,7 +11,7 @@ from vtkmodules.vtkRenderingCore import vtkActor, vtkPolyDataMapper
 if TYPE_CHECKING:
     from meshscope.core.mesh_data import BoundingBox
 
-PRINTER_PRESETS: dict[str, dict] = {
+PRINTER_PRESETS: dict[str, dict[str, Any]] = {
     "ender_3": {"name": "Ender 3", "x": 220, "y": 220, "z": 250},
     "prusa_mk4": {"name": "Prusa MK4", "x": 250, "y": 210, "z": 210},
     "voron_2_4": {"name": "Voron 2.4", "x": 350, "y": 350, "z": 350},

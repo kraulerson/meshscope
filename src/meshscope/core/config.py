@@ -34,7 +34,7 @@ def _get_config_path() -> Path:
     return config_dir / "config.json"
 
 
-def _deep_merge(base: dict, overlay: dict) -> dict:
+def _deep_merge(base: dict[str, Any], overlay: dict[str, Any]) -> dict[str, Any]:
     """Merge overlay into base, filling missing keys from base."""
     result = base.copy()
     for key, value in overlay.items():
@@ -56,7 +56,7 @@ class AppConfig:
 
     @property
     def version(self) -> int:
-        return self._data.get("version", CURRENT_SCHEMA_VERSION)
+        return int(self._data.get("version", CURRENT_SCHEMA_VERSION))
 
     def get(self, section: str, key: str) -> Any:
         return self._data.get(section, {}).get(key)
@@ -67,7 +67,7 @@ class AppConfig:
         self._data[section][key] = value
 
     def to_dict(self) -> dict[str, Any]:
-        return self._data
+        return dict(self._data)
 
 
 def load_config(path: Path | None = None) -> AppConfig:
