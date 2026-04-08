@@ -185,3 +185,47 @@ def rotate_mesh(mesh: MeshData, axis: str, degrees: float) -> TransformResult:
         description=f"Rotated {degrees}\u00b0 around {axis_lower.upper()} axis",
         warning=None,
     )
+
+
+def mirror_mesh(mesh: MeshData, axis: str) -> TransformResult:
+    """Mirror mesh across the given axis plane through the model center.
+
+    Reverses face winding order to maintain outward-facing normals.
+    Raises MeshTransformError if axis is not x, y, or z.
+    """
+    axis_lower = axis.lower()
+    if axis_lower not in ("x", "y", "z"):
+        raise MeshTransformError(f"Invalid axis '{axis}'. Must be 'x', 'y', or 'z'.")
+
+    axis_index = {"x": 0, "y": 1, "z": 2}[axis_lower]
+    center = float(mesh.vertices[:, axis_index].mean())
+
+    new_vertices = mesh.vertices.copy()
+    new_vertices[:, axis_index] = 2 * center - new_vertices[:, axis_index]
+
+    # Reverse face winding to fix normals (swap columns 1 and 2)
+    new_faces = mesh.faces.copy()
+    new_faces[:, 1], new_faces[:, 2] = mesh.faces[:, 2].copy(), mesh.faces[:, 1].copy()
+
+    new_normals = _recompute_normals(new_vertices, new_faces)
+    new_meta = _recompute_metadata(
+        new_vertices, new_faces, is_manifold=mesh.metadata.is_manifold
+    )
+
+    new_mesh = MeshData(
+        vertices=new_vertices,
+        faces=new_faces,
+        normals=new_normals,
+        metadata=new_meta,
+    )
+
+    axis_labels = {"x": "YZ", "y": "XZ", "z": "XY"}
+    logger.info("Mirror: axis=%s plane=%s", axis_lower, axis_labels[axis_lower])
+
+    plane = axis_labels[axis_lower]
+    ax_upper = axis_lower.upper()
+    return TransformResult(
+        mesh=new_mesh,
+        description=f"Mirrored across {plane} plane ({ax_upper} axis)",
+        warning=None,
+    )

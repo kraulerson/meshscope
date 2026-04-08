@@ -7,6 +7,7 @@ from meshscope.core.mesh_data import BoundingBox, MeshData, MeshMetadata
 from meshscope.core.mesh_transform import (
     TransformResult,
     _recompute_metadata,
+    mirror_mesh,
     rotate_mesh,
     scale_mesh,
 )
@@ -285,3 +286,75 @@ class TestRotateMesh:
         # Normals should be unit vectors
         norms = np.linalg.norm(result.mesh.normals, axis=1)
         np.testing.assert_allclose(norms, 1.0, atol=1e-5)
+
+
+class TestMirrorMesh:
+    def test_mirror_x_negates_x_coordinates(self) -> None:
+        mesh = _make_cube_mesh()
+        center_x = mesh.vertices[:, 0].mean()
+        result = mirror_mesh(mesh, "x")
+        # Each vertex X should be reflected around center
+        expected_x = 2 * center_x - mesh.vertices[:, 0]
+        np.testing.assert_allclose(result.mesh.vertices[:, 0], expected_x, atol=1e-5)
+
+    def test_mirror_y_negates_y_coordinates(self) -> None:
+        mesh = _make_cube_mesh()
+        center_y = mesh.vertices[:, 1].mean()
+        result = mirror_mesh(mesh, "y")
+        expected_y = 2 * center_y - mesh.vertices[:, 1]
+        np.testing.assert_allclose(result.mesh.vertices[:, 1], expected_y, atol=1e-5)
+
+    def test_mirror_z_negates_z_coordinates(self) -> None:
+        mesh = _make_cube_mesh()
+        center_z = mesh.vertices[:, 2].mean()
+        result = mirror_mesh(mesh, "z")
+        expected_z = 2 * center_z - mesh.vertices[:, 2]
+        np.testing.assert_allclose(result.mesh.vertices[:, 2], expected_z, atol=1e-5)
+
+    def test_mirror_reverses_face_winding(self) -> None:
+        mesh = _make_cube_mesh()
+        result = mirror_mesh(mesh, "x")
+        # Columns 1 and 2 should be swapped
+        np.testing.assert_array_equal(result.mesh.faces[:, 1], mesh.faces[:, 2])
+        np.testing.assert_array_equal(result.mesh.faces[:, 2], mesh.faces[:, 1])
+
+    def test_mirror_twice_returns_to_original(self) -> None:
+        mesh = _make_cube_mesh()
+        result1 = mirror_mesh(mesh, "x")
+        result2 = mirror_mesh(result1.mesh, "x")
+        np.testing.assert_allclose(result2.mesh.vertices, mesh.vertices, atol=1e-5)
+        # Face winding should be back to original after double swap
+        np.testing.assert_array_equal(result2.mesh.faces, mesh.faces)
+
+    def test_mirror_preserves_bounding_box_size(self) -> None:
+        mesh = _make_cube_mesh()
+        result = mirror_mesh(mesh, "y")
+        bb = result.mesh.metadata.bounding_box
+        assert abs(bb.max_x - bb.min_x - 10.0) < 0.1
+        assert abs(bb.max_y - bb.min_y - 10.0) < 0.1
+        assert abs(bb.max_z - bb.min_z - 10.0) < 0.1
+
+    def test_mirror_preserves_surface_area(self) -> None:
+        mesh = _make_cube_mesh()
+        result = mirror_mesh(mesh, "z")
+        assert abs(result.mesh.metadata.surface_area_mm2 - 600.0) < 1.0
+
+    def test_mirror_preserves_volume(self) -> None:
+        mesh = _make_cube_mesh()
+        result = mirror_mesh(mesh, "x")
+        assert result.mesh.metadata.volume_mm3 is not None
+        assert abs(result.mesh.metadata.volume_mm3 - 1000.0) < 1.0
+
+    def test_mirror_returns_transform_result(self) -> None:
+        mesh = _make_cube_mesh()
+        result = mirror_mesh(mesh, "x")
+        assert isinstance(result, TransformResult)
+        assert "X" in result.description
+
+    def test_mirror_invalid_axis_raises(self) -> None:
+        mesh = _make_cube_mesh()
+        try:
+            mirror_mesh(mesh, "w")
+            raise AssertionError("Should have raised MeshTransformError")
+        except MeshTransformError as e:
+            assert "axis" in e.user_message.lower()
