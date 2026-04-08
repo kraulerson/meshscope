@@ -22,12 +22,19 @@ from PySide6.QtWidgets import (
 )
 
 from meshscope.core.config import load_config, save_config
-from meshscope.core.exceptions import MeshExportError, MeshLoadError, MeshRepairError
+from meshscope.core.exceptions import (
+    MeshExportError,
+    MeshLoadError,
+    MeshRepairError,
+    MeshTransformError,
+)
 from meshscope.core.mesh_analysis import analyze_mesh
 from meshscope.core.mesh_exporter import check_symlink, export_mesh, get_format_warning
 from meshscope.core.mesh_loader import load_mesh
 from meshscope.core.mesh_repair import apply_repair, plan_repair
+from meshscope.core.mesh_transform import mirror_mesh, rotate_mesh, scale_mesh
 from meshscope.ui.info_panel import InfoPanel
+from meshscope.ui.transform_dialog import TransformDialog
 from meshscope.ui.viewport_widget import ViewportWidget
 from meshscope.vtk_adapter.mesh_adapter import mesh_data_to_polydata
 from meshscope.vtk_adapter.print_bed import PRINTER_PRESETS
@@ -176,6 +183,12 @@ class MainWindow(QMainWindow):
         self.repair_action.setToolTip("Repair mesh issues found by analysis")
         self.repair_action.triggered.connect(self._on_repair)
 
+        self.transform_action = QAction("Transform", self)
+        self.transform_action.setShortcut(QKeySequence("Ctrl+T"))
+        self.transform_action.setEnabled(False)
+        self.transform_action.setToolTip("Scale, rotate, or mirror mesh")
+        self.transform_action.triggered.connect(self._on_transform)
+
     # --- Menus ---
 
     def _create_menus(self) -> None:
@@ -188,6 +201,8 @@ class MainWindow(QMainWindow):
         edit_menu = self.menuBar().addMenu("&Edit")
         edit_menu.addAction(self.undo_action)
         edit_menu.addAction(self.redo_action)
+        edit_menu.addSeparator()
+        edit_menu.addAction(self.transform_action)
 
         view_menu = self.menuBar().addMenu("&View")
         view_menu.addAction(self.wireframe_action)
@@ -248,6 +263,7 @@ class MainWindow(QMainWindow):
         self.toolbar.addSeparator()
         self.toolbar.addAction(self.analyze_action)
         self.toolbar.addAction(self.repair_action)
+        self.toolbar.addAction(self.transform_action)
 
     # --- File loading ---
 
@@ -329,6 +345,7 @@ class MainWindow(QMainWindow):
         self.bed_action.setEnabled(enabled)
         self.bed_preset_combo.setEnabled(enabled)
         self.analyze_action.setEnabled(enabled)
+        self.transform_action.setEnabled(enabled)
         self.repair_action.setEnabled(False)
         if not enabled:
             self.undo_action.setEnabled(False)
@@ -621,6 +638,67 @@ class MainWindow(QMainWindow):
                 f"Repair partially complete — {summary}. "
                 "Some issues remain. See analysis panel."
             )
+
+    def _on_transform(self) -> None:
+        """Open transform dialog and apply the selected transform."""
+        if self._document is None:
+            return
+
+        dialog = TransformDialog(self._document.mesh.metadata.bounding_box, parent=self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+
+        op = dialog.operation()
+        try:
+            if op == "scale":
+                result = scale_mesh(self._document.mesh, dialog.scale_factor())
+            elif op == "rotate":
+                result = rotate_mesh(
+                    self._document.mesh, dialog.rotate_axis(), dialog.rotate_degrees()
+                )
+            elif op == "mirror":
+                result = mirror_mesh(self._document.mesh, dialog.mirror_axis())
+            else:
+                return
+        except MeshTransformError as e:
+            self.statusBar().showMessage(f"Transform failed: {e.user_message}")
+            logger.error("Transform failed: %s", e.user_message)
+            return
+        except Exception as e:
+            self.statusBar().showMessage(f"Transform failed: {e}")
+            logger.exception("Transform failed")
+            return
+
+        # Push pre-transform state for undo
+        self._document.undo_stack.push(self._document.mesh)
+        self._document.mesh = result.mesh
+
+        # Invalidate analysis
+        self._document.analysis = None
+
+        # Update viewport
+        polydata = mesh_data_to_polydata(self._document.mesh)
+        self._viewport.scene_manager.display_mesh(polydata)
+        self._viewport.vtk_render()
+
+        # Update info panel
+        self._info_panel.set_document(self._document)
+        self._info_panel.clear_analysis()
+        self._viewport.scene_manager.hide_highlights()
+
+        # Update action states
+        self._update_undo_state()
+        self._update_repair_state()
+
+        # Refresh print bed if visible
+        if self.bed_action.isChecked():
+            self._on_bed_toggled(True)
+
+        # Status bar
+        msg = result.description
+        if result.warning:
+            msg += f" — {result.warning}"
+        self.statusBar().showMessage(msg)
 
     def _on_export(self) -> None:
         """Handle Export As action."""
