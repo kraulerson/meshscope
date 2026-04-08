@@ -141,6 +141,13 @@ class TestRecomputeMetadata:
         assert meta.volume_mm3 is not None
         assert abs(meta.volume_mm3 - 1000.0) < 0.1
 
+    def test_recompute_metadata_returns_mesh_metadata(self) -> None:
+        """Regression: _recompute_metadata type annotations must satisfy mypy."""
+        verts = _make_cube_vertices()
+        faces = _make_cube_faces()
+        meta = _recompute_metadata(verts, faces, is_manifold=True)
+        assert isinstance(meta, MeshMetadata)
+
     def test_volume_non_manifold_is_none(self) -> None:
         verts = _make_cube_vertices()
         faces = _make_cube_faces()

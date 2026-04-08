@@ -6,6 +6,7 @@ import logging
 from dataclasses import dataclass
 
 import numpy as np
+import numpy.typing as npt
 
 from meshscope.core.exceptions import MeshTransformError
 from meshscope.core.mesh_data import BoundingBox, MeshData, MeshMetadata
@@ -23,8 +24,8 @@ class TransformResult:
 
 
 def _recompute_metadata(
-    vertices: np.ndarray,
-    faces: np.ndarray,
+    vertices: npt.NDArray[np.float32],
+    faces: npt.NDArray[np.uint32],
     *,
     is_manifold: bool,
 ) -> MeshMetadata:
@@ -68,7 +69,9 @@ def _recompute_metadata(
     )
 
 
-def _recompute_normals(vertices: np.ndarray, faces: np.ndarray) -> np.ndarray:
+def _recompute_normals(
+    vertices: npt.NDArray[np.float32], faces: npt.NDArray[np.uint32]
+) -> npt.NDArray[np.float32]:
     """Recompute per-face unit normals from vertices and faces."""
     v0 = vertices[faces[:, 0]]
     v1 = vertices[faces[:, 1]]
@@ -77,7 +80,8 @@ def _recompute_normals(vertices: np.ndarray, faces: np.ndarray) -> np.ndarray:
     norms = np.linalg.norm(cross, axis=1, keepdims=True)
     # Avoid division by zero for degenerate faces
     norms = np.where(norms < 1e-10, 1.0, norms)
-    return (cross / norms).astype(np.float32)
+    normals: npt.NDArray[np.float32] = (cross / norms).astype(np.float32)
+    return normals
 
 
 def scale_mesh(mesh: MeshData, factor: float) -> TransformResult:
