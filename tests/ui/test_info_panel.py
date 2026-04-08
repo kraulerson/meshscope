@@ -377,3 +377,22 @@ class TestInfoPanelAnalysisSection:
     def test_has_highlight_checkbox(self, qapp: QApplication) -> None:
         panel = InfoPanel()
         assert panel.has_highlight_checkbox() is True
+
+    # UAT3-003 regression: checkbox must be hidden when analysis has no issues
+    def test_highlight_checkbox_hidden_when_no_issues(self, qapp: QApplication) -> None:
+        """UAT3-003: highlight checkbox must be hidden when analysis is clean."""
+        panel = InfoPanel()
+        panel.show_analysis(_make_clean_analysis())
+        assert panel._highlight_checkbox.isHidden(), (
+            "UAT3-003: checkbox must be hidden when has_issues is False."
+        )
+
+    def test_highlight_checkbox_visible_when_issues_exist(
+        self, qapp: QApplication
+    ) -> None:
+        """UAT3-003: highlight checkbox must be visible when there are issues."""
+        panel = InfoPanel()
+        panel.show_analysis(_make_problem_analysis())
+        assert not panel._highlight_checkbox.isHidden(), (
+            "UAT3-003: checkbox must be visible when analysis has issues."
+        )

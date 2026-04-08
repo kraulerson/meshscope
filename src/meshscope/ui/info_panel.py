@@ -462,7 +462,7 @@ class InfoPanel(QDockWidget):
                 f"{_WARNING} Degenerate faces: {analysis.degenerate_face_count}"
             )
 
-        # Auto-check highlight if any issues found
+        # Auto-check highlight if any issues found; hide checkbox when none
         has_issues = (
             not analysis.is_watertight
             or analysis.hole_count > 0
@@ -471,6 +471,7 @@ class InfoPanel(QDockWidget):
             or analysis.degenerate_face_count > 0
         )
         self._highlight_checkbox.setChecked(has_issues)
+        self._highlight_checkbox.setVisible(has_issues)
 
         self._analysis_section.setVisible(True)
 
