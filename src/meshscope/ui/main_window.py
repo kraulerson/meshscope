@@ -6,7 +6,7 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QEvent, QObject, QPoint, Qt
 from PySide6.QtGui import QAction, QDragEnterEvent, QDropEvent, QKeySequence
 from PySide6.QtWidgets import (
     QComboBox,
@@ -29,6 +29,7 @@ from meshscope.core.exceptions import (
     MeshTransformError,
 )
 from meshscope.core.mesh_analysis import analyze_mesh
+from meshscope.core.mesh_data import Measurement, compute_distance
 from meshscope.core.mesh_exporter import check_symlink, export_mesh, get_format_warning
 from meshscope.core.mesh_loader import load_mesh
 from meshscope.core.mesh_repair import apply_repair, plan_repair
@@ -75,6 +76,9 @@ class MainWindow(QMainWindow):
         self._document: MeshDocument | None = None
         self._is_loading = False
         self._highlight_connected = False
+        self._measure_mode_active = False
+        self._pending_point_a: tuple[float, float, float] | None = None
+        self._mouse_press_pos: QPoint | None = None
 
         # Viewport (central widget)
         self._viewport = ViewportWidget(self)
@@ -189,6 +193,18 @@ class MainWindow(QMainWindow):
         self.transform_action.setToolTip("Scale, rotate, or mirror mesh")
         self.transform_action.triggered.connect(self._on_transform)
 
+        self.measure_action = QAction("Measure", self)
+        self.measure_action.setShortcut(QKeySequence("M"))
+        self.measure_action.setCheckable(True)
+        self.measure_action.setEnabled(False)
+        self.measure_action.setToolTip("Toggle measurement mode")
+        self.measure_action.toggled.connect(self._on_measure_toggled)
+
+        self.clear_measurements_action = QAction("Clear Measurements", self)
+        self.clear_measurements_action.setEnabled(False)
+        self.clear_measurements_action.setToolTip("Remove all measurements")
+        self.clear_measurements_action.triggered.connect(self._on_clear_measurements)
+
     # --- Menus ---
 
     def _create_menus(self) -> None:
@@ -203,6 +219,9 @@ class MainWindow(QMainWindow):
         edit_menu.addAction(self.redo_action)
         edit_menu.addSeparator()
         edit_menu.addAction(self.transform_action)
+        edit_menu.addSeparator()
+        edit_menu.addAction(self.measure_action)
+        edit_menu.addAction(self.clear_measurements_action)
 
         view_menu = self.menuBar().addMenu("&View")
         view_menu.addAction(self.wireframe_action)
@@ -264,6 +283,7 @@ class MainWindow(QMainWindow):
         self.toolbar.addAction(self.analyze_action)
         self.toolbar.addAction(self.repair_action)
         self.toolbar.addAction(self.transform_action)
+        self.toolbar.addAction(self.measure_action)
 
     # --- File loading ---
 
@@ -293,6 +313,7 @@ class MainWindow(QMainWindow):
             self._is_loading = False
 
         self._document = doc
+        self._invalidate_measurements()
         self._info_panel.clear_analysis()
         self._viewport.scene_manager.hide_highlights()
         self._info_panel.set_document(doc)
@@ -346,6 +367,10 @@ class MainWindow(QMainWindow):
         self.bed_preset_combo.setEnabled(enabled)
         self.analyze_action.setEnabled(enabled)
         self.transform_action.setEnabled(enabled)
+        self.measure_action.setEnabled(enabled)
+        if not enabled:
+            self.measure_action.setChecked(False)
+            self.clear_measurements_action.setEnabled(False)
         self.repair_action.setEnabled(False)
         if not enabled:
             self.undo_action.setEnabled(False)
@@ -437,6 +462,7 @@ class MainWindow(QMainWindow):
 
         self._document.mesh = restored
         self._document.analysis = None
+        self._invalidate_measurements()
 
         polydata = mesh_data_to_polydata(self._document.mesh)
         self._viewport.scene_manager.display_mesh(polydata, auto_fit=False)
@@ -466,6 +492,7 @@ class MainWindow(QMainWindow):
 
         self._document.mesh = redone
         self._document.analysis = None
+        self._invalidate_measurements()
 
         polydata = mesh_data_to_polydata(self._document.mesh)
         self._viewport.scene_manager.display_mesh(polydata, auto_fit=False)
@@ -578,6 +605,7 @@ class MainWindow(QMainWindow):
         # Push pre-repair state for undo, then replace mesh
         self._document.undo_stack.push(self._document.mesh)
         self._document.mesh = repair_result.mesh
+        self._invalidate_measurements()
 
         # Update viewport
         polydata = mesh_data_to_polydata(self._document.mesh)
@@ -672,6 +700,7 @@ class MainWindow(QMainWindow):
         # Push pre-transform state for undo
         self._document.undo_stack.push(self._document.mesh)
         self._document.mesh = result.mesh
+        self._invalidate_measurements()
 
         # Invalidate analysis
         self._document.analysis = None
@@ -898,3 +927,148 @@ class MainWindow(QMainWindow):
                 if path.suffix.lower() in SUPPORTED_EXTENSIONS:
                     self._load_file(path)
                     return
+
+    # --- Measurement mode ---
+
+    def _on_measure_toggled(self, checked: bool) -> None:
+        """Toggle measurement mode on/off."""
+        self._measure_mode_active = checked
+        if checked:
+            self._pending_point_a = None
+            self._mouse_press_pos = None
+            self._viewport.vtk_interactor.installEventFilter(self)
+            self._viewport.vtk_interactor.setCursor(Qt.CursorShape.CrossCursor)
+            self.statusBar().showMessage(
+                "Measure mode \u2014 click two points on mesh surface"
+            )
+        else:
+            if self._pending_point_a is not None:
+                self._pending_point_a = None
+                self._viewport.scene_manager.hide_pending_point()
+                self._viewport.vtk_render()
+            self._viewport.vtk_interactor.removeEventFilter(self)
+            self._viewport.vtk_interactor.setCursor(Qt.CursorShape.ArrowCursor)
+            if self._document is not None:
+                filename = Path(self._document.source_path).name
+                self.statusBar().showMessage(
+                    f"{filename} \u2014 "
+                    f"{self._document.mesh.metadata.face_count:,} faces"
+                )
+
+    def eventFilter(self, obj: QObject, event: QEvent) -> bool:
+        """Intercept mouse events on the VTK interactor for measurement clicks."""
+        if not self._measure_mode_active:
+            return False
+
+        if event.type() == QEvent.Type.MouseButtonPress:
+            if event.button() == Qt.MouseButton.LeftButton:
+                self._mouse_press_pos = event.position().toPoint()
+            return False
+
+        if event.type() == QEvent.Type.MouseButtonRelease:
+            if (
+                event.button() == Qt.MouseButton.LeftButton
+                and self._mouse_press_pos is not None
+            ):
+                release_pos = event.position().toPoint()
+                dx = abs(release_pos.x() - self._mouse_press_pos.x())
+                dy = abs(release_pos.y() - self._mouse_press_pos.y())
+                self._mouse_press_pos = None
+
+                if dx < 5 and dy < 5:
+                    self._handle_measure_click(release_pos.x(), release_pos.y())
+                    return True
+
+            return False
+
+        return False
+
+    def _handle_measure_click(self, x: int, y: int) -> None:
+        """Process a measurement click at the given display coordinates."""
+        if self._document is None:
+            return
+
+        vtk_widget = self._viewport.vtk_interactor
+        vtk_y = vtk_widget.height() - y
+
+        point = self._viewport.scene_manager.pick_surface_point(x, vtk_y)
+        if point is None:
+            self.statusBar().showMessage("No surface at click point")
+            return
+
+        if self._pending_point_a is None:
+            self._pending_point_a = point
+            index = self._document.next_measurement_index()
+            self._viewport.scene_manager.show_pending_point(point, index=index)
+            self._viewport.vtk_render()
+            self.statusBar().showMessage("Point A placed \u2014 click second point")
+        else:
+            point_a = self._pending_point_a
+            point_b = point
+            self._pending_point_a = None
+
+            distance = compute_distance(point_a, point_b)
+            index = self._document.next_measurement_index()
+
+            measurement = Measurement(
+                point_a=point_a,
+                point_b=point_b,
+                distance_mm=distance,
+                index=index,
+            )
+
+            was_fifo = len(self._document.measurements) >= 3
+            self._document.add_measurement(measurement)
+
+            self._viewport.scene_manager.hide_pending_point()
+            self._viewport.scene_manager.show_measurements(self._document.measurements)
+            self._viewport.vtk_render()
+            self._info_panel.show_measurements(self._document.measurements)
+            self.clear_measurements_action.setEnabled(True)
+
+            if was_fifo:
+                self.statusBar().showMessage(
+                    f"Measurement #{index}: {distance:.1f} mm "
+                    "(oldest measurement replaced)"
+                )
+            else:
+                self.statusBar().showMessage(f"Measurement #{index}: {distance:.1f} mm")
+
+    def _on_clear_measurements(self) -> None:
+        """Remove all measurements."""
+        if self._document is None:
+            return
+
+        self._document.clear_measurements()
+        self._viewport.scene_manager.hide_measurements()
+        self._viewport.scene_manager.hide_pending_point()
+        self._viewport.vtk_render()
+        self._info_panel.clear_measurements()
+        self.clear_measurements_action.setEnabled(False)
+        self._pending_point_a = None
+        self.statusBar().showMessage("Measurements cleared")
+
+    def _invalidate_measurements(self) -> None:
+        """Clear all measurements due to mesh geometry change.
+
+        Called by transform, repair, undo, and redo handlers.
+        """
+        if self._document is None:
+            return
+
+        had_measurements = len(self._document.measurements) > 0
+
+        self._document.clear_measurements()
+        self._viewport.scene_manager.hide_measurements()
+        self._viewport.scene_manager.hide_pending_point()
+        self._info_panel.clear_measurements()
+        self.clear_measurements_action.setEnabled(False)
+        self._pending_point_a = None
+
+        if self._measure_mode_active:
+            self.measure_action.setChecked(False)
+
+        if had_measurements:
+            self.statusBar().showMessage(
+                "Measurements cleared \u2014 mesh geometry changed"
+            )
