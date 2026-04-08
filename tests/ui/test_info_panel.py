@@ -6,6 +6,7 @@ import numpy as np
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QApplication, QDockWidget
 
+from meshscope.core.mesh_analysis import MeshAnalysis
 from meshscope.core.mesh_data import BoundingBox, MeshData, MeshMetadata
 from meshscope.core.mesh_document import MeshDocument
 from meshscope.ui.info_panel import CollapsibleSection, InfoPanel
@@ -299,3 +300,80 @@ class TestInfoPanelAccessibility:
             panel._status_section,
         ):
             assert section.header_button.focusPolicy() == Qt.FocusPolicy.StrongFocus
+
+
+def _make_clean_analysis() -> MeshAnalysis:
+    return MeshAnalysis(
+        is_manifold=True,
+        is_watertight=True,
+        hole_count=0,
+        open_edge_count=0,
+        degenerate_face_count=0,
+        non_manifold_edge_count=0,
+        open_edge_indices=np.zeros((0, 2), dtype=np.int64),
+        non_manifold_edge_indices=np.zeros((0, 2), dtype=np.int64),
+        degenerate_face_indices=np.zeros((0,), dtype=np.int64),
+    )
+
+
+def _make_problem_analysis() -> MeshAnalysis:
+    return MeshAnalysis(
+        is_manifold=False,
+        is_watertight=False,
+        hole_count=2,
+        open_edge_count=3,
+        degenerate_face_count=1,
+        non_manifold_edge_count=2,
+        open_edge_indices=np.array([[0, 1], [1, 2], [2, 3]], dtype=np.int64),
+        non_manifold_edge_indices=np.array([[0, 2], [1, 3]], dtype=np.int64),
+        degenerate_face_indices=np.array([0], dtype=np.int64),
+    )
+
+
+class TestInfoPanelAnalysisSection:
+    def test_analysis_section_hidden_by_default(self, qapp: QApplication) -> None:
+        panel = InfoPanel()
+        assert panel.analysis_section_visible() is False
+
+    def test_show_analysis_makes_section_visible(self, qapp: QApplication) -> None:
+        panel = InfoPanel()
+        panel.show_analysis(_make_clean_analysis())
+        assert panel.analysis_section_visible() is True
+
+    def test_clean_analysis_shows_watertight_yes(self, qapp: QApplication) -> None:
+        panel = InfoPanel()
+        panel.show_analysis(_make_clean_analysis())
+        text = panel.analysis_section_text()
+        assert "Yes" in text
+        assert "Watertight" in text
+
+    def test_problem_analysis_shows_counts(self, qapp: QApplication) -> None:
+        panel = InfoPanel()
+        panel.show_analysis(_make_problem_analysis())
+        text = panel.analysis_section_text()
+        assert "3" in text  # open_edge_count
+        assert "2" in text  # hole_count / non_manifold
+        assert "1" in text  # degenerate_face_count
+
+    def test_problem_analysis_shows_watertight_no(self, qapp: QApplication) -> None:
+        panel = InfoPanel()
+        panel.show_analysis(_make_problem_analysis())
+        text = panel.analysis_section_text()
+        assert "No" in text
+        assert "Watertight" in text
+
+    def test_clear_analysis_hides_section(self, qapp: QApplication) -> None:
+        panel = InfoPanel()
+        panel.show_analysis(_make_clean_analysis())
+        panel.clear_analysis()
+        assert panel.analysis_section_visible() is False
+
+    def test_clear_also_clears_analysis(self, qapp: QApplication) -> None:
+        panel = InfoPanel()
+        panel.show_analysis(_make_clean_analysis())
+        panel.clear()
+        assert panel.analysis_section_visible() is False
+
+    def test_has_highlight_checkbox(self, qapp: QApplication) -> None:
+        panel = InfoPanel()
+        assert panel.has_highlight_checkbox() is True
