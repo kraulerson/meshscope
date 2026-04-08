@@ -221,7 +221,6 @@ class TestPlanRepair:
         mesh = _make_open_mesh()
         analysis = analyze_mesh(mesh)
         plan = plan_repair(analysis, mesh)
-        # open mesh has 10 faces; filling a hole adds faces. If delta > 5%
-        # of 10 (i.e. > 0.5 faces), warning should be True
-        if abs(plan.estimated_face_delta) > 0:
-            assert plan.high_impact_warning is True
+        # open mesh has 10 faces; filling a hole adds faces (>5% of 10)
+        assert plan.estimated_face_delta != 0, "Open mesh should have non-zero delta"
+        assert plan.high_impact_warning is True
