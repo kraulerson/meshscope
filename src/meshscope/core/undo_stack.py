@@ -44,6 +44,32 @@ class UndoStack:
         self._entries.append(mesh)
         return mesh
 
+    def undo_swap(self, current: MeshData) -> MeshData | None:
+        """Undo with proper current-state tracking.
+
+        Pops the previous state from the undo stack, pushes the
+        current state onto the redo stack, and returns the previous state.
+        Returns None if nothing to undo.
+        """
+        if not self._entries:
+            return None
+        previous = self._entries.pop()
+        self._redo_stack.append(current)
+        return previous
+
+    def redo_swap(self, current: MeshData) -> MeshData | None:
+        """Redo with proper current-state tracking.
+
+        Pops the next state from the redo stack, pushes the current
+        state onto the undo stack, and returns the next state.
+        Returns None if nothing to redo.
+        """
+        if not self._redo_stack:
+            return None
+        next_state = self._redo_stack.pop()
+        self._entries.append(current)
+        return next_state
+
     def can_undo(self) -> bool:
         return len(self._entries) > 0
 

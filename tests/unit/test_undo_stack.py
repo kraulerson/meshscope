@@ -69,3 +69,102 @@ class TestUndoStack:
         assert stack.memory_bytes == 0
         stack.push(_make_mesh(1.0))
         assert stack.memory_bytes > 0
+
+
+class TestUndoSwap:
+    def test_undo_swap_returns_previous_state(self) -> None:
+        stack = UndoStack(max_entries=10)
+        mesh_a = _make_mesh(1.0)
+        mesh_b = _make_mesh(2.0)
+        stack.push(mesh_a)
+        result = stack.undo_swap(mesh_b)
+        assert result is mesh_a
+
+    def test_undo_swap_saves_current_for_redo(self) -> None:
+        stack = UndoStack(max_entries=10)
+        mesh_a = _make_mesh(1.0)
+        mesh_b = _make_mesh(2.0)
+        stack.push(mesh_a)
+        stack.undo_swap(mesh_b)
+        assert stack.can_redo() is True
+
+    def test_undo_swap_returns_none_when_empty(self) -> None:
+        stack = UndoStack(max_entries=10)
+        mesh_b = _make_mesh(2.0)
+        assert stack.undo_swap(mesh_b) is None
+        assert stack.can_redo() is False
+
+    def test_redo_swap_returns_forward_state(self) -> None:
+        stack = UndoStack(max_entries=10)
+        mesh_a = _make_mesh(1.0)
+        mesh_b = _make_mesh(2.0)
+        stack.push(mesh_a)
+        stack.undo_swap(mesh_b)
+        # Now redo should give back mesh_b (the post-modification state)
+        result = stack.redo_swap(mesh_a)
+        assert result is mesh_b
+
+    def test_redo_swap_returns_none_when_empty(self) -> None:
+        stack = UndoStack(max_entries=10)
+        mesh_a = _make_mesh(1.0)
+        assert stack.redo_swap(mesh_a) is None
+        assert stack.can_undo() is False
+
+    def test_full_undo_redo_roundtrip(self) -> None:
+        """push(A), current=B -> undo -> redo should restore B."""
+        stack = UndoStack(max_entries=10)
+        mesh_a = _make_mesh(1.0)
+        mesh_b = _make_mesh(2.0)
+
+        stack.push(mesh_a)
+        # Simulate: current is now B
+
+        # Undo: swap B for A
+        restored = stack.undo_swap(mesh_b)
+        assert restored is mesh_a
+
+        # Redo: swap A for B
+        redone = stack.redo_swap(mesh_a)
+        assert redone is mesh_b
+
+    def test_two_repairs_double_undo_double_redo(self) -> None:
+        """push(A), current=B, push(B), current=C -> undo x2 -> redo x2."""
+        stack = UndoStack(max_entries=10)
+        mesh_a = _make_mesh(1.0)
+        mesh_b = _make_mesh(2.0)
+        mesh_c = _make_mesh(3.0)
+
+        stack.push(mesh_a)
+        # current = B
+        stack.push(mesh_b)
+        # current = C
+
+        # Undo to B
+        r1 = stack.undo_swap(mesh_c)
+        assert r1 is mesh_b
+
+        # Undo to A
+        r2 = stack.undo_swap(mesh_b)
+        assert r2 is mesh_a
+
+        # Redo to B
+        r3 = stack.redo_swap(mesh_a)
+        assert r3 is mesh_b
+
+        # Redo to C
+        r4 = stack.redo_swap(mesh_b)
+        assert r4 is mesh_c
+
+    def test_push_after_undo_swap_clears_redo(self) -> None:
+        """Undo then new push should clear redo history."""
+        stack = UndoStack(max_entries=10)
+        mesh_a = _make_mesh(1.0)
+        mesh_b = _make_mesh(2.0)
+
+        stack.push(mesh_a)
+        stack.undo_swap(mesh_b)
+        assert stack.can_redo() is True
+
+        # New modification after undo -- redo should be cleared
+        stack.push(mesh_a)
+        assert stack.can_redo() is False
