@@ -75,6 +75,14 @@ def plan_repair(analysis: MeshAnalysis, mesh: MeshData) -> RepairPlan:
         else False
     )
 
+    logger.info(
+        "Repair plan: flipped=%d holes=%d degen=%d delta=%d",
+        flipped_count,
+        holes,
+        degen,
+        estimated_delta,
+    )
+
     return RepairPlan(
         flipped_normal_count=flipped_count,
         holes_to_fill=holes,

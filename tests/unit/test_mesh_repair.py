@@ -216,6 +216,25 @@ class TestPlanRepair:
         plan = plan_repair(analysis, mesh)
         assert isinstance(plan, RepairPlan)
 
+    def test_flipped_normals_detected(self) -> None:
+        """A mesh with inconsistent winding should report flipped normals."""
+        # Two triangles sharing edge [0,1] with same winding = inconsistent
+        vertices = np.array(
+            [[0, 0, 0], [10, 0, 0], [5, 10, 0], [5, -10, 0]],
+            dtype=np.float32,
+        )
+        faces = np.array(
+            [[0, 1, 2], [0, 1, 3]],  # shared edge same direction = inconsistent
+            dtype=np.uint32,
+        )
+        normals = np.zeros((2, 3), dtype=np.float32)
+        bb = BoundingBox(0, -10, 0, 10, 10, 0)
+        meta = MeshMetadata(4, 2, bb, 100.0, None, False)
+        mesh = MeshData(vertices=vertices, faces=faces, normals=normals, metadata=meta)
+        analysis = analyze_mesh(mesh)
+        plan = plan_repair(analysis, mesh)
+        assert plan.flipped_normal_count >= 1
+
     def test_high_impact_warning_when_large_change(self) -> None:
         """A mesh where repair changes face count by >5% should set warning."""
         mesh = _make_open_mesh()
