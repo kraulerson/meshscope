@@ -60,8 +60,15 @@ class SceneManager:
         # Set background color
         self._renderer.SetBackground(*BACKGROUND_COLOR)
 
-    def display_mesh(self, polydata: vtkPolyData) -> None:
-        """Display a mesh in the scene, replacing any existing mesh."""
+    def display_mesh(self, polydata: vtkPolyData, *, auto_fit: bool = True) -> None:
+        """Display a mesh in the scene, replacing any existing mesh.
+
+        Args:
+            polydata: The mesh geometry to display.
+            auto_fit: If True (default), reset camera to frame the model.
+                Set to False when updating mesh in-place (transforms, undo)
+                to preserve the user's camera position.
+        """
         self.clear()
 
         # Create mapper and actor
@@ -83,11 +90,12 @@ class SceneManager:
         self._wireframe_overlay_enabled = False
         self._smooth_shading_enabled = False
 
-        # Auto-frame the model
-        try:
-            self.fit_to_view()
-        except Exception:
-            logger.warning("fit_to_view failed after display_mesh", exc_info=True)
+        # Auto-frame the model (skip for in-place updates like transforms)
+        if auto_fit:
+            try:
+                self.fit_to_view()
+            except Exception:
+                logger.warning("fit_to_view failed after display_mesh", exc_info=True)
 
         logger.debug("Displayed mesh: %d cells", polydata.GetNumberOfCells())
 

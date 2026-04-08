@@ -637,6 +637,21 @@ class TestUAT4Regressions:
         style = btn.styleSheet()
         assert "checked" in style, "Axis button must have checked-state stylesheet"
 
+    def test_transform_preserves_camera_position(self, window: MainWindow) -> None:
+        """Camera must not reset after transform/undo/redo/repair."""
+        fixtures = Path(__file__).parent.parent / "fixtures" / "valid"
+        window._load_file(fixtures / "cube.stl")
+
+        from meshscope.vtk_adapter.mesh_adapter import mesh_data_to_polydata
+
+        polydata = mesh_data_to_polydata(window._document.mesh)
+        sm = window._viewport.scene_manager
+        cam = sm._renderer.GetActiveCamera()
+        cam.SetPosition(99, 99, 99)
+        sm.display_mesh(polydata, auto_fit=False)
+        pos = cam.GetPosition()
+        assert pos[0] == 99.0, "Camera must not reset with auto_fit=False"
+
     def test_print_bed_has_axis_indicators(self, window: MainWindow) -> None:
         """UAT4-018: Print bed must include axis arrow actors."""
         fixtures = Path(__file__).parent.parent / "fixtures" / "valid"
