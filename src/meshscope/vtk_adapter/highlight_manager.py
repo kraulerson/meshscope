@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-import numpy as np
+import numpy.typing as npt
 from vtkmodules.vtkCommonCore import vtkPoints
 from vtkmodules.vtkCommonDataModel import vtkCellArray, vtkLine, vtkPolyData
 from vtkmodules.vtkRenderingCore import vtkActor, vtkPolyDataMapper
@@ -24,8 +24,8 @@ class HighlightManager:
     def create_actors(
         self,
         analysis: MeshAnalysis,
-        vertices: np.ndarray,
-        faces: np.ndarray,
+        vertices: npt.NDArray[Any],
+        faces: npt.NDArray[Any],
     ) -> list[vtkActor]:
         """Create highlight actors for all problem types found in analysis."""
         actors: list[vtkActor] = []
@@ -67,8 +67,8 @@ class HighlightManager:
 
     def _create_edge_actor(
         self,
-        edge_indices: np.ndarray,
-        vertices: np.ndarray,
+        edge_indices: npt.NDArray[Any],
+        vertices: npt.NDArray[Any],
         *,
         color: tuple[float, float, float],
         line_width: float,
@@ -103,9 +103,9 @@ class HighlightManager:
 
     def _create_face_outline_actor(
         self,
-        face_indices: np.ndarray,
-        vertices: np.ndarray,
-        faces: np.ndarray,
+        face_indices: npt.NDArray[Any],
+        vertices: npt.NDArray[Any],
+        faces: npt.NDArray[Any],
         *,
         color: tuple[float, float, float],
         line_width: float,

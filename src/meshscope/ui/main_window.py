@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
 
 from meshscope.core.config import load_config, save_config
 from meshscope.core.exceptions import MeshExportError, MeshLoadError
+from meshscope.core.mesh_analysis import analyze_mesh
 from meshscope.core.mesh_exporter import check_symlink, export_mesh, get_format_warning
 from meshscope.core.mesh_loader import load_mesh
 from meshscope.ui.info_panel import InfoPanel
@@ -149,6 +150,12 @@ class MainWindow(QMainWindow):
         self.bed_action.setToolTip("Toggle print bed volume overlay")
         self.bed_action.toggled.connect(self._on_bed_toggled)
 
+        self.analyze_action = QAction("Analyze", self)
+        self.analyze_action.setShortcut(QKeySequence("A"))
+        self.analyze_action.setEnabled(False)
+        self.analyze_action.setToolTip("Analyze mesh for printability issues")
+        self.analyze_action.triggered.connect(self._on_analyze)
+
     # --- Menus ---
 
     def _create_menus(self) -> None:
@@ -170,6 +177,7 @@ class MainWindow(QMainWindow):
 
         view_menu.addSeparator()
         view_menu.addAction(self.bed_action)
+        view_menu.addAction(self.analyze_action)
 
         help_menu = self.menuBar().addMenu("&Help")
         about_action = QAction("About", self)
@@ -210,6 +218,9 @@ class MainWindow(QMainWindow):
         self.bed_preset_combo.currentIndexChanged.connect(self._on_bed_preset_changed)
         self.toolbar.addWidget(self.bed_preset_combo)
 
+        self.toolbar.addSeparator()
+        self.toolbar.addAction(self.analyze_action)
+
     # --- File loading ---
 
     def _on_open(self) -> None:
@@ -238,6 +249,8 @@ class MainWindow(QMainWindow):
             self._is_loading = False
 
         self._document = doc
+        self._info_panel.clear_analysis()
+        self._viewport.scene_manager.hide_highlights()
         self._info_panel.set_document(doc)
 
         polydata = mesh_data_to_polydata(doc.mesh)
@@ -272,6 +285,7 @@ class MainWindow(QMainWindow):
     def _set_state_error(self, message: str) -> None:
         self._document = None
         self._info_panel.clear()
+        self._info_panel.clear_analysis()
         self._viewport.scene_manager.clear()
         self._viewport.vtk_render()
         self.statusBar().showMessage(message)
@@ -285,6 +299,7 @@ class MainWindow(QMainWindow):
         self.export_action.setEnabled(enabled)
         self.bed_action.setEnabled(enabled)
         self.bed_preset_combo.setEnabled(enabled)
+        self.analyze_action.setEnabled(enabled)
         if not enabled:
             self.bed_action.setChecked(False)
 
@@ -300,6 +315,69 @@ class MainWindow(QMainWindow):
 
     def _on_fit(self) -> None:
         self._viewport.scene_manager.fit_to_view()
+        self._viewport.vtk_render()
+
+    def _on_analyze(self) -> None:
+        """Run mesh topology analysis."""
+        if self._document is None:
+            return
+        try:
+            analysis = analyze_mesh(self._document.mesh)
+            self._document.analysis = analysis
+            self._info_panel.show_analysis(analysis)
+
+            # Connect highlight checkbox (disconnect first to avoid duplicates)
+            if (
+                self._info_panel.highlight_checkbox.receivers(
+                    self._info_panel.highlight_checkbox.toggled
+                )
+                > 0
+            ):
+                self._info_panel.highlight_checkbox.toggled.disconnect(
+                    self._on_highlight_toggled
+                )
+            self._info_panel.highlight_checkbox.toggled.connect(
+                self._on_highlight_toggled
+            )
+
+            total_issues = (
+                analysis.open_edge_count
+                + analysis.non_manifold_edge_count
+                + analysis.degenerate_face_count
+                + analysis.hole_count
+            )
+            if total_issues > 0:
+                plural = "s" if total_issues != 1 else ""
+                self.statusBar().showMessage(
+                    f"Analysis complete — {total_issues} issue{plural} found"
+                )
+                self._viewport.scene_manager.show_highlights(
+                    analysis, self._document.mesh.vertices, self._document.mesh.faces
+                )
+                self._viewport.vtk_render()
+            else:
+                self.statusBar().showMessage("Analysis complete — no issues")
+                self._viewport.scene_manager.hide_highlights()
+                self._viewport.vtk_render()
+
+        except Exception as e:
+            self.statusBar().showMessage(f"Analysis failed: {e}")
+            logger.exception("Analysis failed")
+
+    def _on_highlight_toggled(self, checked: bool) -> None:
+        """Toggle viewport highlights on/off."""
+        if (
+            checked
+            and self._document is not None
+            and self._document.analysis is not None
+        ):
+            self._viewport.scene_manager.show_highlights(
+                self._document.analysis,
+                self._document.mesh.vertices,
+                self._document.mesh.faces,
+            )
+        else:
+            self._viewport.scene_manager.hide_highlights()
         self._viewport.vtk_render()
 
     def _on_export(self) -> None:

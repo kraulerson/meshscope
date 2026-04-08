@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 import numpy as np
+import numpy.typing as npt
 import trimesh
 
 if TYPE_CHECKING:
@@ -26,9 +27,9 @@ class MeshAnalysis:
     open_edge_count: int
     degenerate_face_count: int
     non_manifold_edge_count: int
-    open_edge_indices: np.ndarray  # shape (N, 2) vertex index pairs
-    non_manifold_edge_indices: np.ndarray  # shape (N, 2) vertex index pairs
-    degenerate_face_indices: np.ndarray  # shape (N,) face indices
+    open_edge_indices: npt.NDArray[np.int64]  # shape (N, 2) vertex index pairs
+    non_manifold_edge_indices: npt.NDArray[np.int64]  # shape (N, 2) vertex index pairs
+    degenerate_face_indices: npt.NDArray[np.int64]  # shape (N,) face indices
 
 
 def analyze_mesh(mesh: MeshData) -> MeshAnalysis:
@@ -90,7 +91,7 @@ def analyze_mesh(mesh: MeshData) -> MeshAnalysis:
     )
 
 
-def _count_holes(boundary_edges: np.ndarray) -> int:
+def _count_holes(boundary_edges: npt.NDArray[np.int64]) -> int:
     """Count boundary loops (holes) from boundary edge array."""
     if len(boundary_edges) == 0:
         return 0
