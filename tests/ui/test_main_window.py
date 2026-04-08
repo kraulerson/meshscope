@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 from PySide6.QtGui import QKeySequence
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QComboBox
 
 from meshscope.ui.info_panel import InfoPanel
 from meshscope.ui.main_window import MainWindow
@@ -214,6 +214,63 @@ class TestMainWindowExportAction:
     def test_export_action_in_toolbar(self, window: MainWindow) -> None:
         toolbar_actions = [a.text() for a in window.toolbar.actions()]
         assert any("Export" in t for t in toolbar_actions)
+
+
+class TestMainWindowPrintBed:
+    def test_bed_action_exists(self, window: MainWindow) -> None:
+        assert hasattr(window, "bed_action")
+
+    def test_bed_action_disabled_initially(self, window: MainWindow) -> None:
+        assert not window.bed_action.isEnabled()
+
+    def test_bed_action_is_checkable(self, window: MainWindow) -> None:
+        assert window.bed_action.isCheckable()
+
+    def test_bed_action_enabled_after_load(self, window: MainWindow) -> None:
+        fixtures = Path(__file__).parent.parent / "fixtures" / "valid"
+        window._load_file(fixtures / "cube.stl")
+        assert window.bed_action.isEnabled()
+
+    def test_bed_shortcut_is_p(self, window: MainWindow) -> None:
+        assert window.bed_action.shortcut() == QKeySequence("P")
+
+    def test_bed_preset_dropdown_exists(self, window: MainWindow) -> None:
+        assert hasattr(window, "bed_preset_combo")
+        assert isinstance(window.bed_preset_combo, QComboBox)
+
+    def test_bed_preset_dropdown_has_presets(self, window: MainWindow) -> None:
+        combo = window.bed_preset_combo
+        items = [combo.itemText(i) for i in range(combo.count())]
+        assert "Ender 3" in items
+        assert "Prusa MK4" in items
+        assert "Voron 2.4" in items
+        assert "Bambu X1 Carbon" in items
+        assert "Bambu P1S" in items
+        assert "Custom..." in items
+
+    def test_bed_preset_dropdown_disabled_initially(self, window: MainWindow) -> None:
+        assert not window.bed_preset_combo.isEnabled()
+
+    def test_bed_action_in_view_menu(self, window: MainWindow) -> None:
+        view_menu = None
+        for action in window.menuBar().actions():
+            if "View" in action.text():
+                view_menu = action.menu()
+                break
+        assert view_menu is not None
+        action_texts = [a.text() for a in view_menu.actions()]
+        assert any("Bed" in t for t in action_texts)
+
+    def test_bed_action_disabled_after_error(
+        self, window: MainWindow, tmp_path: Path
+    ) -> None:
+        fixtures = Path(__file__).parent.parent / "fixtures" / "valid"
+        window._load_file(fixtures / "cube.stl")
+        assert window.bed_action.isEnabled()
+        bad = tmp_path / "bad.stl"
+        bad.write_bytes(b"not a real stl file")
+        window._load_file(bad)
+        assert not window.bed_action.isEnabled()
 
 
 class TestMainWindowDragDrop:

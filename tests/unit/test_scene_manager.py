@@ -4,6 +4,7 @@ from vtkmodules.vtkCommonCore import vtkFloatArray, vtkPoints
 from vtkmodules.vtkCommonDataModel import vtkCellArray, vtkPolyData, vtkTriangle
 from vtkmodules.vtkRenderingCore import vtkRenderer
 
+from meshscope.core.mesh_data import BoundingBox
 from meshscope.vtk_adapter.scene_manager import SceneManager
 
 
@@ -223,3 +224,48 @@ class TestSceneManagerDegenerateGeometry:
             renderer, "ResetCamera", side_effect=RuntimeError("GPU error")
         ):
             sm.fit_to_view()  # must not crash
+
+
+class TestSceneManagerPrintBed:
+    def test_print_bed_not_visible_initially(self) -> None:
+        renderer = vtkRenderer()
+        sm = SceneManager(renderer)
+        assert sm.print_bed_visible is False
+
+    def test_show_print_bed(self) -> None:
+        renderer = vtkRenderer()
+        sm = SceneManager(renderer)
+        bbox = BoundingBox(0, 0, 0, 100, 100, 100)
+        sm.show_print_bed(220, 220, 250, bbox)
+        assert sm.print_bed_visible is True
+
+    def test_hide_print_bed(self) -> None:
+        renderer = vtkRenderer()
+        sm = SceneManager(renderer)
+        bbox = BoundingBox(0, 0, 0, 100, 100, 100)
+        sm.show_print_bed(220, 220, 250, bbox)
+        sm.hide_print_bed()
+        assert sm.print_bed_visible is False
+
+    def test_show_print_bed_returns_overflow_text(self) -> None:
+        renderer = vtkRenderer()
+        sm = SceneManager(renderer)
+        bbox = BoundingBox(0, 0, 0, 300, 100, 100)
+        text = sm.show_print_bed(220, 220, 250, bbox)
+        assert text is not None
+        assert "X" in text
+
+    def test_show_print_bed_returns_none_when_fits(self) -> None:
+        renderer = vtkRenderer()
+        sm = SceneManager(renderer)
+        bbox = BoundingBox(0, 0, 0, 100, 100, 100)
+        text = sm.show_print_bed(220, 220, 250, bbox)
+        assert text is None
+
+    def test_clear_also_hides_print_bed(self) -> None:
+        renderer = vtkRenderer()
+        sm = SceneManager(renderer)
+        bbox = BoundingBox(0, 0, 0, 100, 100, 100)
+        sm.show_print_bed(220, 220, 250, bbox)
+        sm.clear()
+        assert sm.print_bed_visible is False

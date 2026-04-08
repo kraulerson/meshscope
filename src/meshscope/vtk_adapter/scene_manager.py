@@ -16,6 +16,9 @@ from vtkmodules.vtkRenderingCore import (
     vtkRenderer,
 )
 
+from meshscope.core.mesh_data import BoundingBox
+from meshscope.vtk_adapter.print_bed import PrintBedManager, get_overflow_text
+
 logger = logging.getLogger("meshscope.vtk_adapter.scene_manager")
 
 # Appearance constants
@@ -41,6 +44,9 @@ class SceneManager:
         self._wireframe_overlay_enabled = False
         self._smooth_shading_enabled = False
         self._lights_configured = False
+        self._print_bed_actors: list[vtkActor] = []
+        self._print_bed_manager = PrintBedManager()
+        self._print_bed_visible = False
 
         # Set background color
         self._renderer.SetBackground(*BACKGROUND_COLOR)
@@ -88,6 +94,29 @@ class SceneManager:
 
         self._wireframe_overlay_enabled = False
         self._smooth_shading_enabled = False
+        self.hide_print_bed()
+
+    def show_print_bed(self, x: int, y: int, z: int, bbox: BoundingBox) -> str | None:
+        """Show print bed volume overlay. Returns overflow text or None."""
+        self.hide_print_bed()
+        actors = self._print_bed_manager.create_actors(x, y, z)
+        overflow_actors = self._print_bed_manager.create_overflow_actors(x, y, z, bbox)
+        self._print_bed_actors = actors + overflow_actors
+        for actor in self._print_bed_actors:
+            self._renderer.AddActor(actor)
+        self._print_bed_visible = True
+        return get_overflow_text(x, y, z, bbox)
+
+    def hide_print_bed(self) -> None:
+        """Remove all print bed actors from the scene."""
+        for actor in self._print_bed_actors:
+            self._renderer.RemoveActor(actor)
+        self._print_bed_actors.clear()
+        self._print_bed_visible = False
+
+    @property
+    def print_bed_visible(self) -> bool:
+        return self._print_bed_visible
 
     def set_wireframe_overlay(self, enabled: bool) -> None:
         """Toggle the wireframe overlay on/off."""

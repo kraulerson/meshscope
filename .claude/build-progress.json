@@ -3,13 +3,14 @@
     "file-loading",
     "3d-viewport",
     "mesh-info-panel",
-    "format-conversion"
+    "format-conversion",
+    "print-bed-visualization"
   ],
-  "features_since_last_test": 2,
+  "features_since_last_test": 1,
   "test_interval": 2,
   "last_test_session": "2026-04-07",
-  "testing_required": true,
+  "testing_required": false,
   "tester_count": 1,
   "bug_tracker": "github_issues",
-  "sessions_completed": 1
+  "sessions_completed": 2
 }
