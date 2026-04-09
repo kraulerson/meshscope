@@ -7,7 +7,13 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import QEvent, QObject, QPoint, Qt
-from PySide6.QtGui import QAction, QDragEnterEvent, QDropEvent, QKeySequence
+from PySide6.QtGui import (
+    QAction,
+    QDragEnterEvent,
+    QDropEvent,
+    QKeySequence,
+    QMouseEvent,
+)
 from PySide6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -958,6 +964,9 @@ class MainWindow(QMainWindow):
     def eventFilter(self, obj: QObject, event: QEvent) -> bool:
         """Intercept mouse events on the VTK interactor for measurement clicks."""
         if not self._measure_mode_active:
+            return False
+
+        if not isinstance(event, QMouseEvent):
             return False
 
         if event.type() == QEvent.Type.MouseButtonPress:
