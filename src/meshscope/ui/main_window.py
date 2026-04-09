@@ -13,6 +13,7 @@ from PySide6.QtGui import (
     QDropEvent,
     QKeySequence,
     QMouseEvent,
+    QShortcut,
 )
 from PySide6.QtWidgets import (
     QComboBox,
@@ -111,6 +112,11 @@ class MainWindow(QMainWindow):
         status_bar.setAccessibleName("Status bar")
         self.setStatusBar(status_bar)
         self.statusBar().showMessage("Ready")
+
+        # Escape shortcut (window-level so it works regardless of focus)
+        escape_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Escape), self)
+        escape_shortcut.setContext(Qt.ShortcutContext.WindowShortcut)
+        escape_shortcut.activated.connect(self._on_escape)
 
         # Connect slice overlay signals
         self._viewport.slice_overlay.preset_clicked.connect(self._on_slice_preset)
@@ -494,7 +500,7 @@ class MainWindow(QMainWindow):
         # Refresh slice plane if active
         if self.slice_action.isChecked():
             self._viewport.scene_manager.activate_slice_plane(
-                self._viewport.vtk_interactor.GetRenderWindow().GetInteractor()
+                self._viewport.vtk_interactor
             )
         self._viewport.vtk_render()
 
@@ -529,7 +535,7 @@ class MainWindow(QMainWindow):
         # Refresh slice plane if active
         if self.slice_action.isChecked():
             self._viewport.scene_manager.activate_slice_plane(
-                self._viewport.vtk_interactor.GetRenderWindow().GetInteractor()
+                self._viewport.vtk_interactor
             )
         self._viewport.vtk_render()
 
@@ -648,7 +654,7 @@ class MainWindow(QMainWindow):
         # Refresh slice plane if active
         if self.slice_action.isChecked():
             self._viewport.scene_manager.activate_slice_plane(
-                self._viewport.vtk_interactor.GetRenderWindow().GetInteractor()
+                self._viewport.vtk_interactor
             )
         self._viewport.vtk_render()
 
@@ -751,7 +757,7 @@ class MainWindow(QMainWindow):
         # Refresh slice plane if active
         if self.slice_action.isChecked():
             self._viewport.scene_manager.activate_slice_plane(
-                self._viewport.vtk_interactor.GetRenderWindow().GetInteractor()
+                self._viewport.vtk_interactor
             )
         self._viewport.vtk_render()
 
@@ -1160,13 +1166,14 @@ class MainWindow(QMainWindow):
             self.measure_action.setChecked(False)
 
         if had_measurements:
+            self._viewport.vtk_render()
             self.statusBar().showMessage(
                 "Measurements cleared \u2014 mesh geometry changed"
             )
 
-    def keyPressEvent(self, event: QEvent) -> None:
-        """Handle key press events."""
-        if event.key() == Qt.Key.Key_Escape and self.slice_action.isChecked():
+    def _on_escape(self) -> None:
+        """Handle Escape key — exit active modes."""
+        if self.slice_action.isChecked():
             self.slice_action.setChecked(False)
-            return
-        super().keyPressEvent(event)
+        elif self._measure_mode_active:
+            self.measure_action.setChecked(False)

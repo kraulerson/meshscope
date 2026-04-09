@@ -87,7 +87,7 @@ def _clip_polydata_fallback(
         clipper = vtkClipPolyData()
         clipper.SetInputData(polydata)
         clipper.SetClipFunction(plane)
-        clipper.SetInsideOut(False)
+        clipper.InsideOutOn()
         clipper.Update()
         result = clipper.GetOutput()
         if result is None or result.GetNumberOfCells() == 0:
@@ -321,13 +321,16 @@ class SlicePlaneManager:
         try:
             # Representation
             rep = vtkImplicitPlaneRepresentation()
-            rep.SetPlaceFactor(1.0)
+            rep.SetPlaceFactor(1.25)
             rep.PlaceWidget(bounds)
             rep.SetOrigin(*center)
             rep.SetNormal(0, 0, 1)  # Z axis default
             rep.SetEdgeColor(*PLANE_WIDGET_COLOR)
             rep.SetOutlineTranslation(False)
             rep.SetScaleEnabled(False)
+            # Larger handle for easier grabbing
+            rep.GetSelectedPlaneProperty().SetOpacity(0.3)
+            rep.SetHandleSize(15.0)
 
             # Widget
             widget = vtkImplicitPlaneWidget2()
