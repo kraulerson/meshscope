@@ -49,6 +49,7 @@ jobs:
       - name: Build with Nuitka
         run: |
           python -m nuitka --standalone \
+            --assume-yes-for-downloads \
             --enable-plugin=pyside6 \
             --include-module=vtkmodules.vtkRenderingOpenGL2 \
             --include-module=vtkmodules.vtkRenderingCore \
