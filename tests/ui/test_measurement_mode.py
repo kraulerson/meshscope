@@ -221,6 +221,17 @@ class TestMainWindowMeasureMode:
         window.measure_action.setChecked(False)
         assert window._pending_point_a is None
 
+    def test_event_filter_ignores_non_mouse_events(self, window: MainWindow) -> None:
+        """Regression: eventFilter must handle non-QMouseEvent without error."""
+        from PySide6.QtCore import QEvent
+
+        fixtures = Path(__file__).parent.parent / "fixtures" / "valid"
+        window._load_file(fixtures / "cube.stl")
+        window.measure_action.setChecked(True)
+        non_mouse_event = QEvent(QEvent.Type.FocusIn)
+        result = window.eventFilter(window._viewport.vtk_interactor, non_mouse_event)
+        assert result is False
+
 
 class TestMainWindowClearMeasurements:
     def test_clear_measurements_action_exists(self, window: MainWindow) -> None:
