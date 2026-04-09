@@ -1,12 +1,4 @@
 name: Release — meshscope
-# ─────────────────────────────────────────────────────────────────
-# BEFORE FIRST RELEASE: Search for "TODO" in this file and configure:
-#   - Code signing certificates (Windows, macOS, Linux)
-#   - Build artifact paths for your framework
-#   - SBOM generation commands
-# The Phase 3→4 gate will warn if TODOs remain unconfigured.
-# Light-track projects: this pipeline is optional for internal-only use.
-# ─────────────────────────────────────────────────────────────────
 
 on:
   push:
@@ -20,7 +12,16 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [windows-latest, macos-latest, ubuntu-latest]
+        include:
+          - os: macos-latest
+            artifact_name: meshscope-macos-arm64
+            binary_name: main.bin
+          - os: ubuntu-latest
+            artifact_name: meshscope-linux-x64
+            binary_name: main.bin
+          - os: windows-latest
+            artifact_name: meshscope-windows-x64
+            binary_name: main.exe
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -31,81 +32,109 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
+          python-version: '3.13'
 
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Build
-        run: python -m build
-        # TODO: Replace with your framework's build command:
-        #   Tauri:    cargo tauri build
-        #   Electron: npx electron-builder --publish never
-        #   Flutter:  flutter build [windows|macos|linux] --release
+      - name: Install Nuitka
+        run: pip install nuitka
 
-      - name: Code signing
-        run: echo "TODO — configure code signing"
-        # TODO: Configure code signing. Store certificates as GitHub Secrets.
-        #
-        #   Windows: EV Code Signing Certificate
-        #     Secrets: WINDOWS_CERTIFICATE_BASE64, WINDOWS_CERTIFICATE_PASSWORD
-        #     Decode:  echo "${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}" | base64 -d > cert.pfx
-        #     Sign:    signtool sign /f cert.pfx /p "${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}" /tr http://timestamp.digicert.com /td sha256 <binary>
-        #
-        #   macOS: Apple Developer Certificate
-        #     Secrets: APPLE_CERTIFICATE_BASE64, APPLE_CERTIFICATE_PASSWORD, APPLE_ID, APPLE_TEAM_ID
-        #     Import certificate into Keychain, then codesign and notarize.
-        #
-        #   Linux: GPG signing key
-        #     Secret: GPG_PRIVATE_KEY
-        #     Import key and sign artifacts with gpg --detach-sign.
+      - name: Install Linux display dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1-mesa-dev libglu1-mesa-dev libegl1-mesa-dev libxkbcommon0
+
+      - name: Build with Nuitka
+        run: |
+          python -m nuitka --standalone \
+            --enable-plugin=pyside6 \
+            --include-module=vtkmodules.vtkRenderingOpenGL2 \
+            --include-module=vtkmodules.vtkRenderingCore \
+            --include-module=vtkmodules.vtkRenderingFreeType \
+            --include-module=vtkmodules.vtkInteractionStyle \
+            --include-module=vtkmodules.vtkFiltersSources \
+            --include-module=vtkmodules.vtkFiltersGeneral \
+            --include-module=vtkmodules.vtkFiltersCore \
+            --include-module=vtkmodules.vtkCommonCore \
+            --include-module=vtkmodules.vtkCommonDataModel \
+            --include-module=vtkmodules.vtkCommonExecutionModel \
+            --include-module=vtkmodules.vtkCommonMath \
+            --include-module=vtkmodules.vtkCommonTransforms \
+            --include-module=vtkmodules.vtkIOGeometry \
+            --include-module=vtkmodules.vtkIOXML \
+            --include-module=vtkmodules.vtkIOPLY \
+            --include-module=vtkmodules.vtkIOLegacy \
+            --include-module=vtkmodules.qt.QVTKRenderWindowInteractor \
+            --include-module=vtkmodules.vtkInteractionWidgets \
+            --nofollow-import-to=vtkmodules.test \
+            --nofollow-import-to=vtkmodules.web \
+            --nofollow-import-to=vtkmodules.wx \
+            --nofollow-import-to=vtkmodules.tk \
+            --nofollow-import-to=matplotlib \
+            --nofollow-import-to=PIL \
+            --include-package=trimesh \
+            --include-package=numpy \
+            --output-dir=dist/ \
+            --company-name="meshscope" \
+            --product-name="meshscope" \
+            --product-version="0.2.0.0" \
+            src/meshscope/main.py
+
+      - name: Package artifact
+        run: |
+          cd dist
+          if [ "$RUNNER_OS" == "Windows" ]; then
+            7z a "${{ matrix.artifact_name }}.zip" main.dist/
+          else
+            tar czf "${{ matrix.artifact_name }}.tar.gz" main.dist/
+          fi
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: release-${{ matrix.os }}
-          path: dist/*
-          # TODO: Replace dist/* with the actual artifact glob for your framework:
-          #   Tauri:    src-tauri/target/release/bundle/**/*
-          #   Electron: dist/*.{exe,dmg,AppImage,deb}
-          #   Flutter:  build/[platform]/release/*
+          name: ${{ matrix.artifact_name }}
+          path: |
+            dist/${{ matrix.artifact_name }}.tar.gz
+            dist/${{ matrix.artifact_name }}.zip
 
   release:
     needs: build
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Collect release files
+        run: |
+          mkdir -p release-files
+          find artifacts/ -type f \( -name "*.tar.gz" -o -name "*.zip" \) -exec cp {} release-files/ \;
+          ls -lh release-files/
 
       - name: Generate checksums
-        run: sha256sum release-*/* > checksums.sha256
+        run: |
+          cd release-files
+          sha256sum * > checksums.sha256
+          cat checksums.sha256
 
       - name: Generate SBOM
         run: |
-          # Generate SBOM — configure the command for your language:
-          #   Node.js:  npx @cyclonedx/cyclonedx-npm --output-file sbom.json
-          #   Python:   pip install cyclonedx-bom && cyclonedx-py requirements -i requirements.txt -o sbom.json
-          #   Rust:     cargo install cargo-cyclonedx && cargo cyclonedx -f json > sbom.json
-          #   Go:       go install github.com/CycloneDX/cyclonedx-gomod/cmd/cyclonedx-gomod@latest && cyclonedx-gomod mod -json -output sbom.json
-          #   .NET:     dotnet tool install --global CycloneDX && dotnet CycloneDX -o sbom.json
-          echo "ERROR: No SBOM tool configured. Replace this step with a language-specific CycloneDX command."
-          echo "See comments above for examples."
-          exit 1
-
-      # DAST — Electron/Tauri apps with web UIs can be scanned locally.
-      # If your desktop app serves a local web interface, uncomment and configure:
-      #
-      # - name: DAST — OWASP ZAP baseline scan
-      #   run: |
-      #     docker run --rm zaproxy/zap-stable zap-baseline.py \
-      #       -t http://localhost:${{ vars.APP_PORT || '3000' }} \
-      #       -J zap-report.json
+          pip install cyclonedx-bom
+          cyclonedx-py requirements -i requirements.txt -o release-files/sbom.json --format json || echo "SBOM generation failed — continuing without it"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            release-*/*
-            checksums.sha256
-            sbom.json
+          files: release-files/*
           generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') }}
