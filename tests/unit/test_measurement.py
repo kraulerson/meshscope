@@ -128,6 +128,14 @@ def _make_measurement(index: int) -> Measurement:
 
 
 class TestMeshDocumentMeasurements:
+    def test_measurement_type_importable_from_mesh_data(self) -> None:
+        """Regression: Measurement must be importable alongside MeshData."""
+        from meshscope.core.mesh_data import Measurement as M
+        from meshscope.core.mesh_data import MeshData as MD
+
+        assert M is not None
+        assert MD is not None
+
     def test_initial_measurements_empty(self) -> None:
         doc = _make_doc()
         assert doc.measurements == []
