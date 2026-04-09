@@ -959,8 +959,9 @@ class MainWindow(QMainWindow):
     def _on_slice_toggled(self, checked: bool) -> None:
         """Toggle cross-section slice plane on/off."""
         if checked and self._document is not None:
-            interactor = self._viewport.vtk_interactor.GetRenderWindow().GetInteractor()
-            self._viewport.scene_manager.activate_slice_plane(interactor)
+            self._viewport.scene_manager.activate_slice_plane(
+                self._viewport.vtk_interactor
+            )
             self._viewport.slice_overlay.set_active_preset("z")
             self._viewport.slice_overlay.show_overlay()
             self.statusBar().showMessage(
@@ -1040,7 +1041,11 @@ class MainWindow(QMainWindow):
                 )
 
     def eventFilter(self, obj: QObject, event: QEvent) -> bool:
-        """Intercept mouse events on the VTK interactor for measurement clicks."""
+        """Intercept left-click on the VTK interactor for measurement point placement.
+
+        In measure mode, left-click is consumed to prevent VTK orbit rotation.
+        Right-click drag (zoom) and middle-click drag (pan) still work normally.
+        """
         if not self._measure_mode_active:
             return False
 
@@ -1050,6 +1055,7 @@ class MainWindow(QMainWindow):
         if event.type() == QEvent.Type.MouseButtonPress:
             if event.button() == Qt.MouseButton.LeftButton:
                 self._mouse_press_pos = event.position().toPoint()
+                return True  # consume press to prevent VTK orbit
             return False
 
         if event.type() == QEvent.Type.MouseButtonRelease:
@@ -1058,15 +1064,13 @@ class MainWindow(QMainWindow):
                 and self._mouse_press_pos is not None
             ):
                 release_pos = event.position().toPoint()
-                dx = abs(release_pos.x() - self._mouse_press_pos.x())
-                dy = abs(release_pos.y() - self._mouse_press_pos.y())
                 self._mouse_press_pos = None
-
-                if dx < 5 and dy < 5:
-                    self._handle_measure_click(release_pos.x(), release_pos.y())
-                    return True
-
+                self._handle_measure_click(release_pos.x(), release_pos.y())
+                return True
             return False
+
+        if event.type() == QEvent.Type.MouseMove:
+            return self._mouse_press_pos is not None
 
         return False
 
