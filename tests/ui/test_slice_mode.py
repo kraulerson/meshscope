@@ -4,6 +4,7 @@ import pytest
 from PySide6.QtWidgets import QApplication, QPushButton
 
 from meshscope.ui.slice_overlay import SliceOverlayWidget
+from meshscope.ui.viewport_widget import ViewportWidget
 
 
 @pytest.fixture()
@@ -123,3 +124,20 @@ class TestSliceOverlayWidgetVisibility:
         widget.hide_overlay()
         assert not widget.isVisible()
         widget.close()
+
+
+class TestViewportWidgetSliceOverlay:
+    def test_has_slice_overlay(self, qapp: QApplication) -> None:
+        vp = ViewportWidget()
+        assert vp.slice_overlay is not None
+        vp.close()
+
+    def test_slice_overlay_initially_hidden(self, qapp: QApplication) -> None:
+        vp = ViewportWidget()
+        assert not vp.slice_overlay.isVisible()
+        vp.close()
+
+    def test_slice_overlay_is_child_of_viewport(self, qapp: QApplication) -> None:
+        vp = ViewportWidget()
+        assert vp.slice_overlay.parent() is vp
+        vp.close()
