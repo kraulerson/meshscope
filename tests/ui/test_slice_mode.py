@@ -3,6 +3,7 @@
 import pytest
 from PySide6.QtWidgets import QApplication, QPushButton
 
+from meshscope.ui.main_window import MainWindow
 from meshscope.ui.slice_overlay import SliceOverlayWidget
 from meshscope.ui.viewport_widget import ViewportWidget
 
@@ -141,3 +142,33 @@ class TestViewportWidgetSliceOverlay:
         vp = ViewportWidget()
         assert vp.slice_overlay.parent() is vp
         vp.close()
+
+
+@pytest.fixture()
+def window(qapp: QApplication) -> MainWindow:
+    w = MainWindow()
+    yield w
+    w.close()
+
+
+class TestMainWindowSliceAction:
+    def test_has_slice_action(self, window: MainWindow) -> None:
+        assert window.slice_action is not None
+
+    def test_slice_action_is_checkable(self, window: MainWindow) -> None:
+        assert window.slice_action.isCheckable()
+
+    def test_slice_action_disabled_initially(self, window: MainWindow) -> None:
+        assert not window.slice_action.isEnabled()
+
+    def test_slice_action_shortcut_is_c(self, window: MainWindow) -> None:
+        assert window.slice_action.shortcut().toString() == "C"
+
+    def test_slice_action_enabled_after_load(self, window: MainWindow) -> None:
+        window._set_state_success("test.stl", 1000)
+        assert window.slice_action.isEnabled()
+
+    def test_slice_action_disabled_after_error(self, window: MainWindow) -> None:
+        window._set_state_success("test.stl", 1000)
+        window._set_state_error("File corrupt")
+        assert not window.slice_action.isEnabled()
