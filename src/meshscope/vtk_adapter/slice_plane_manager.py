@@ -10,7 +10,7 @@ reset to center, and mesh update for transform/repair/undo.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from vtkmodules.vtkCommonDataModel import vtkPlane, vtkPolyData
 from vtkmodules.vtkRenderingCore import (
@@ -92,7 +92,7 @@ def _clip_polydata_fallback(
         result = clipper.GetOutput()
         if result is None or result.GetNumberOfCells() == 0:
             return None
-        return result
+        return result  # type: ignore[no-any-return]
     except Exception:
         logger.warning("vtkClipPolyData failed", exc_info=True)
         return None
@@ -120,7 +120,7 @@ class SlicePlaneManager:
 
         # VTK pipeline objects (created on activate)
         self._plane: vtkPlane | None = None
-        self._widget = None  # vtkImplicitPlaneWidget2
+        self._widget: Any = None  # vtkImplicitPlaneWidget2
         self._polydata: vtkPolyData | None = None
         self._bounds: tuple[float, ...] = ()
 
@@ -322,7 +322,7 @@ class SlicePlaneManager:
             # Representation
             rep = vtkImplicitPlaneRepresentation()
             rep.SetPlaceFactor(1.25)
-            rep.PlaceWidget(bounds)
+            rep.PlaceWidget(list(bounds))
             rep.SetOrigin(*center)
             rep.SetNormal(0, 0, 1)  # Z axis default
             rep.SetEdgeColor(*PLANE_WIDGET_COLOR)
@@ -338,9 +338,8 @@ class SlicePlaneManager:
             widget.SetRepresentation(rep)
 
             # Callback for real-time clip update during drag
-            self._callback_tag = widget.AddObserver(
-                "InteractionEvent", self._on_interaction
-            )
+            event_name: Any = "InteractionEvent"
+            self._callback_tag = widget.AddObserver(event_name, self._on_interaction)
 
             widget.On()
             self._widget = widget
