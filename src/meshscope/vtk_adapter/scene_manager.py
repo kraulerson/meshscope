@@ -23,6 +23,7 @@ from meshscope.core.mesh_data import BoundingBox
 from meshscope.vtk_adapter.highlight_manager import HighlightManager
 from meshscope.vtk_adapter.measurement_manager import MeasurementManager
 from meshscope.vtk_adapter.print_bed import PrintBedManager, get_overflow_text
+from meshscope.vtk_adapter.slice_plane_manager import SlicePlaneManager
 
 if TYPE_CHECKING:
     from meshscope.core.mesh_analysis import MeshAnalysis
@@ -59,6 +60,7 @@ class SceneManager:
         self._highlight_actors: list[vtkActor] = []
         self._highlight_manager = HighlightManager()
         self._highlights_visible = False
+        self._slice_manager: SlicePlaneManager | None = None
         self._measurement_actors: list[vtkActor] = []
         self._measurement_manager = MeasurementManager()
         self._measurements_visible = False
@@ -108,6 +110,7 @@ class SceneManager:
 
     def clear(self) -> None:
         """Remove all mesh actors from the scene."""
+        self.deactivate_slice_plane()
         if self._mesh_actor is not None:
             self._renderer.RemoveActor(self._mesh_actor)
             self._mesh_actor = None
@@ -147,6 +150,90 @@ class SceneManager:
     @property
     def highlights_visible(self) -> bool:
         return self._highlights_visible
+
+    # --- Slice Plane ---
+
+    def activate_slice_plane(self, interactor: Any) -> None:
+        """Activate the slice plane. Requires a mesh to be displayed.
+
+        Args:
+            interactor: The vtkRenderWindowInteractor from the viewport widget.
+        """
+        if self._mesh_actor is None:
+            logger.debug("Cannot activate slice plane — no mesh displayed")
+            return
+
+        polydata = self._mesh_actor.GetMapper().GetInput()
+        if polydata is None:
+            return
+
+        bounds = polydata.GetBounds()
+
+        if self._slice_manager is None:
+            self._slice_manager = SlicePlaneManager(self._renderer, interactor)
+
+        # Hide the original mesh actor — the clipped actor replaces it
+        self._mesh_actor.SetVisibility(False)
+        if self._wireframe_actor is not None:
+            self._wireframe_actor.SetVisibility(False)
+
+        self._slice_manager.activate(polydata, bounds)
+
+    def deactivate_slice_plane(self) -> None:
+        """Deactivate the slice plane and restore the full mesh."""
+        if self._slice_manager is not None:
+            self._slice_manager.deactivate()
+
+        # Restore original mesh actor visibility
+        if self._mesh_actor is not None:
+            self._mesh_actor.SetVisibility(True)
+            if self._wireframe_actor is not None and self._wireframe_overlay_enabled:
+                self._wireframe_actor.SetVisibility(True)
+
+    @property
+    def slice_active(self) -> bool:
+        """Whether the slice plane is currently active."""
+        if self._slice_manager is None:
+            return False
+        return self._slice_manager.is_active
+
+    @property
+    def slice_current_preset(self) -> str | None:
+        """The current slice preset axis, or None if manual."""
+        if self._slice_manager is None:
+            return None
+        return self._slice_manager.current_preset
+
+    def set_slice_preset(self, axis: str) -> None:
+        """Snap the slice plane to the given axis preset."""
+        if self._slice_manager is None or self._mesh_actor is None:
+            return
+        polydata = self._mesh_actor.GetMapper().GetInput()
+        if polydata is None:
+            return
+        bounds = polydata.GetBounds()
+        self._slice_manager.set_preset(axis, bounds)
+
+    def reset_slice_plane(self) -> None:
+        """Reset the slice plane to the center of the model."""
+        if self._slice_manager is None or self._mesh_actor is None:
+            return
+        polydata = self._mesh_actor.GetMapper().GetInput()
+        if polydata is None:
+            return
+        bounds = polydata.GetBounds()
+        self._slice_manager.reset_to_center(bounds)
+
+    def update_slice_mesh(self, polydata: vtkPolyData) -> None:
+        """Update the slice plane with new mesh data (after transform/undo).
+
+        Args:
+            polydata: The updated mesh polydata.
+        """
+        if self._slice_manager is None or not self._slice_manager.is_active:
+            return
+        bounds = polydata.GetBounds()
+        self._slice_manager.update_mesh(polydata, bounds)
 
     # --- Measurements ---
 

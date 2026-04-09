@@ -14,6 +14,7 @@ from vtkmodules.vtkInteractionStyle import (
 from vtkmodules.vtkRenderingCore import vtkRenderer
 from vtkmodules.vtkRenderingOpenGL2 import vtkOpenGLRenderer  # noqa: F401
 
+from meshscope.ui.slice_overlay import SliceOverlayWidget
 from meshscope.vtk_adapter.scene_manager import SceneManager
 
 logger = logging.getLogger("meshscope.ui.viewport_widget")
@@ -58,6 +59,9 @@ class ViewportWidget(QWidget):
         self._empty_label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self._empty_label.setAccessibleName("Viewport empty state prompt")
 
+        # Slice plane overlay (floating panel, top-right)
+        self._slice_overlay = SliceOverlayWidget(self)
+
     @property
     def renderer(self) -> vtkRenderer:
         return self._renderer
@@ -77,6 +81,10 @@ class ViewportWidget(QWidget):
     @property
     def vtk_interactor(self) -> QVTKRenderWindowInteractor:
         return self._vtk_widget
+
+    @property
+    def slice_overlay(self) -> SliceOverlayWidget:
+        return self._slice_overlay
 
     def set_state(self, state: str) -> None:
         """Set the viewport state: 'empty', 'loading', 'success', 'error'."""
@@ -118,6 +126,10 @@ class ViewportWidget(QWidget):
         self._vtk_widget.GetRenderWindow().Render()  # type: ignore[no-untyped-call]
 
     def resizeEvent(self, event: QResizeEvent) -> None:
-        """Reposition the overlay label on resize."""
+        """Reposition the overlay label and slice overlay on resize."""
         super().resizeEvent(event)
         self._empty_label.setGeometry(self.rect())
+        # Position slice overlay at top-right corner with 10px margin
+        if hasattr(self, "_slice_overlay"):
+            overlay_x = self.width() - self._slice_overlay.width() - 10
+            self._slice_overlay.move(overlay_x, 10)

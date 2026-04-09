@@ -13,6 +13,7 @@ from PySide6.QtGui import (
     QDropEvent,
     QKeySequence,
     QMouseEvent,
+    QShortcut,
 )
 from PySide6.QtWidgets import (
     QComboBox,
@@ -112,6 +113,15 @@ class MainWindow(QMainWindow):
         self.setStatusBar(status_bar)
         self.statusBar().showMessage("Ready")
 
+        # Escape shortcut (window-level so it works regardless of focus)
+        escape_shortcut = QShortcut(QKeySequence(Qt.Key.Key_Escape), self)
+        escape_shortcut.setContext(Qt.ShortcutContext.WindowShortcut)
+        escape_shortcut.activated.connect(self._on_escape)
+
+        # Connect slice overlay signals
+        self._viewport.slice_overlay.preset_clicked.connect(self._on_slice_preset)
+        self._viewport.slice_overlay.reset_clicked.connect(self._on_slice_reset)
+
         # Load file from CLI argument
         if file_path is not None:
             self._load_file(Path(file_path))
@@ -199,6 +209,13 @@ class MainWindow(QMainWindow):
         self.transform_action.setToolTip("Scale, rotate, or mirror mesh")
         self.transform_action.triggered.connect(self._on_transform)
 
+        self.slice_action = QAction("Slice", self)
+        self.slice_action.setShortcut(QKeySequence("C"))
+        self.slice_action.setCheckable(True)
+        self.slice_action.setEnabled(False)
+        self.slice_action.setToolTip("Toggle cross-section slice plane")
+        self.slice_action.toggled.connect(self._on_slice_toggled)
+
         self.measure_action = QAction("Measure", self)
         self.measure_action.setShortcut(QKeySequence("M"))
         self.measure_action.setCheckable(True)
@@ -243,6 +260,7 @@ class MainWindow(QMainWindow):
         view_menu.addAction(self.bed_action)
         view_menu.addAction(self.analyze_action)
         view_menu.addAction(self.repair_action)
+        view_menu.addAction(self.slice_action)
 
         help_menu = self.menuBar().addMenu("&Help")
         about_action = QAction("About", self)
@@ -289,6 +307,7 @@ class MainWindow(QMainWindow):
         self.toolbar.addAction(self.analyze_action)
         self.toolbar.addAction(self.repair_action)
         self.toolbar.addAction(self.transform_action)
+        self.toolbar.addAction(self.slice_action)
         self.toolbar.addAction(self.measure_action)
 
     # --- File loading ---
@@ -319,6 +338,9 @@ class MainWindow(QMainWindow):
             self._is_loading = False
 
         self._document = doc
+        # Exit slice mode on new file load
+        if self.slice_action.isChecked():
+            self.slice_action.setChecked(False)
         self._invalidate_measurements()
         self._info_panel.clear_analysis()
         self._viewport.scene_manager.hide_highlights()
@@ -373,6 +395,9 @@ class MainWindow(QMainWindow):
         self.bed_preset_combo.setEnabled(enabled)
         self.analyze_action.setEnabled(enabled)
         self.transform_action.setEnabled(enabled)
+        self.slice_action.setEnabled(enabled)
+        if not enabled and self.slice_action.isChecked():
+            self.slice_action.setChecked(False)
         self.measure_action.setEnabled(enabled)
         if not enabled:
             self.measure_action.setChecked(False)
@@ -472,6 +497,11 @@ class MainWindow(QMainWindow):
 
         polydata = mesh_data_to_polydata(self._document.mesh)
         self._viewport.scene_manager.display_mesh(polydata, auto_fit=False)
+        # Refresh slice plane if active
+        if self.slice_action.isChecked():
+            self._viewport.scene_manager.activate_slice_plane(
+                self._viewport.vtk_interactor
+            )
         self._viewport.vtk_render()
 
         self._info_panel.set_document(self._document)
@@ -502,6 +532,11 @@ class MainWindow(QMainWindow):
 
         polydata = mesh_data_to_polydata(self._document.mesh)
         self._viewport.scene_manager.display_mesh(polydata, auto_fit=False)
+        # Refresh slice plane if active
+        if self.slice_action.isChecked():
+            self._viewport.scene_manager.activate_slice_plane(
+                self._viewport.vtk_interactor
+            )
         self._viewport.vtk_render()
 
         self._info_panel.set_document(self._document)
@@ -616,6 +651,11 @@ class MainWindow(QMainWindow):
         # Update viewport
         polydata = mesh_data_to_polydata(self._document.mesh)
         self._viewport.scene_manager.display_mesh(polydata, auto_fit=False)
+        # Refresh slice plane if active
+        if self.slice_action.isChecked():
+            self._viewport.scene_manager.activate_slice_plane(
+                self._viewport.vtk_interactor
+            )
         self._viewport.vtk_render()
 
         # Update info panel with new mesh metadata
@@ -714,6 +754,11 @@ class MainWindow(QMainWindow):
         # Update viewport
         polydata = mesh_data_to_polydata(self._document.mesh)
         self._viewport.scene_manager.display_mesh(polydata, auto_fit=False)
+        # Refresh slice plane if active
+        if self.slice_action.isChecked():
+            self._viewport.scene_manager.activate_slice_plane(
+                self._viewport.vtk_interactor
+            )
         self._viewport.vtk_render()
 
         # Update info panel
@@ -915,6 +960,46 @@ class MainWindow(QMainWindow):
         save_config(self._config)
         return True
 
+    # --- Slice plane ---
+
+    def _on_slice_toggled(self, checked: bool) -> None:
+        """Toggle cross-section slice plane on/off."""
+        if checked and self._document is not None:
+            self._viewport.scene_manager.activate_slice_plane(
+                self._viewport.vtk_interactor
+            )
+            self._viewport.slice_overlay.set_active_preset("z")
+            self._viewport.slice_overlay.show_overlay()
+            self.statusBar().showMessage(
+                "Slice plane active \u2014 drag to move, rotate handles to tilt"
+            )
+        else:
+            self._viewport.scene_manager.deactivate_slice_plane()
+            self._viewport.slice_overlay.hide_overlay()
+            self._viewport.vtk_render()
+            if self._document is not None:
+                self.statusBar().showMessage("Slice plane removed")
+            # Uncheck action if called programmatically
+            if self.slice_action.isChecked():
+                self.slice_action.blockSignals(True)
+                self.slice_action.setChecked(False)
+                self.slice_action.blockSignals(False)
+
+        self._viewport.vtk_render()
+
+    def _on_slice_preset(self, axis: str) -> None:
+        """Handle slice preset button click."""
+        self._viewport.scene_manager.set_slice_preset(axis)
+        self._viewport.slice_overlay.set_active_preset(axis)
+        self._viewport.vtk_render()
+        self.statusBar().showMessage(f"Slice plane: {axis.upper()} axis")
+
+    def _on_slice_reset(self) -> None:
+        """Handle slice reset button click."""
+        self._viewport.scene_manager.reset_slice_plane()
+        self._viewport.vtk_render()
+        self.statusBar().showMessage("Slice plane reset to model center")
+
     # --- Drag and drop ---
 
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
@@ -962,7 +1047,11 @@ class MainWindow(QMainWindow):
                 )
 
     def eventFilter(self, obj: QObject, event: QEvent) -> bool:
-        """Intercept mouse events on the VTK interactor for measurement clicks."""
+        """Intercept left-click on the VTK interactor for measurement point placement.
+
+        In measure mode, left-click is consumed to prevent VTK orbit rotation.
+        Right-click drag (zoom) and middle-click drag (pan) still work normally.
+        """
         if not self._measure_mode_active:
             return False
 
@@ -972,6 +1061,7 @@ class MainWindow(QMainWindow):
         if event.type() == QEvent.Type.MouseButtonPress:
             if event.button() == Qt.MouseButton.LeftButton:
                 self._mouse_press_pos = event.position().toPoint()
+                return True  # consume press to prevent VTK orbit
             return False
 
         if event.type() == QEvent.Type.MouseButtonRelease:
@@ -980,15 +1070,13 @@ class MainWindow(QMainWindow):
                 and self._mouse_press_pos is not None
             ):
                 release_pos = event.position().toPoint()
-                dx = abs(release_pos.x() - self._mouse_press_pos.x())
-                dy = abs(release_pos.y() - self._mouse_press_pos.y())
                 self._mouse_press_pos = None
-
-                if dx < 5 and dy < 5:
-                    self._handle_measure_click(release_pos.x(), release_pos.y())
-                    return True
-
+                self._handle_measure_click(release_pos.x(), release_pos.y())
+                return True
             return False
+
+        if event.type() == QEvent.Type.MouseMove:
+            return self._mouse_press_pos is not None
 
         return False
 
@@ -1078,6 +1166,14 @@ class MainWindow(QMainWindow):
             self.measure_action.setChecked(False)
 
         if had_measurements:
+            self._viewport.vtk_render()
             self.statusBar().showMessage(
                 "Measurements cleared \u2014 mesh geometry changed"
             )
+
+    def _on_escape(self) -> None:
+        """Handle Escape key — exit active modes."""
+        if self.slice_action.isChecked():
+            self.slice_action.setChecked(False)
+        elif self._measure_mode_active:
+            self.measure_action.setChecked(False)

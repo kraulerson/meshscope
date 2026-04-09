@@ -353,3 +353,87 @@ class TestSceneManagerPrintBed:
         sm.show_print_bed(220, 220, 250, bbox)
         sm.clear()
         assert sm.print_bed_visible is False
+
+
+class TestSceneManagerSlicePlane:
+    def test_slice_not_active_initially(self) -> None:
+        renderer = vtkRenderer()
+        sm = SceneManager(renderer)
+        assert sm.slice_active is False
+
+    def test_activate_slice_plane(self) -> None:
+        from unittest.mock import MagicMock
+
+        renderer = vtkRenderer()
+        sm = SceneManager(renderer)
+        sm.display_mesh(_make_polydata())
+
+        interactor = MagicMock()
+        sm.activate_slice_plane(interactor)
+        assert sm.slice_active is True
+
+    def test_deactivate_slice_plane(self) -> None:
+        from unittest.mock import MagicMock
+
+        renderer = vtkRenderer()
+        sm = SceneManager(renderer)
+        sm.display_mesh(_make_polydata())
+
+        interactor = MagicMock()
+        sm.activate_slice_plane(interactor)
+        sm.deactivate_slice_plane()
+        assert sm.slice_active is False
+
+    def test_activate_without_mesh_is_noop(self) -> None:
+        from unittest.mock import MagicMock
+
+        renderer = vtkRenderer()
+        sm = SceneManager(renderer)
+        interactor = MagicMock()
+        sm.activate_slice_plane(interactor)
+        assert sm.slice_active is False
+
+    def test_clear_deactivates_slice(self) -> None:
+        from unittest.mock import MagicMock
+
+        renderer = vtkRenderer()
+        sm = SceneManager(renderer)
+        sm.display_mesh(_make_polydata())
+
+        interactor = MagicMock()
+        sm.activate_slice_plane(interactor)
+        sm.clear()
+        assert sm.slice_active is False
+
+    def test_set_slice_preset(self) -> None:
+        from unittest.mock import MagicMock
+
+        renderer = vtkRenderer()
+        sm = SceneManager(renderer)
+        sm.display_mesh(_make_polydata())
+
+        interactor = MagicMock()
+        sm.activate_slice_plane(interactor)
+        sm.set_slice_preset("x")  # must not raise
+
+    def test_reset_slice_plane(self) -> None:
+        from unittest.mock import MagicMock
+
+        renderer = vtkRenderer()
+        sm = SceneManager(renderer)
+        sm.display_mesh(_make_polydata())
+
+        interactor = MagicMock()
+        sm.activate_slice_plane(interactor)
+        sm.reset_slice_plane()  # must not raise
+
+    def test_update_slice_mesh(self) -> None:
+        from unittest.mock import MagicMock
+
+        renderer = vtkRenderer()
+        sm = SceneManager(renderer)
+        sm.display_mesh(_make_polydata())
+
+        interactor = MagicMock()
+        sm.activate_slice_plane(interactor)
+        sm.update_slice_mesh(_make_polydata())  # must not raise
