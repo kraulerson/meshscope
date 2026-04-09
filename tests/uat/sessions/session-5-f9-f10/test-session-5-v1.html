@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UAT Session 5 - meshscope</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; background: #0f0f17; color: #cdd6f4; line-height: 1.5; padding: 24px; max-width: 960px; margin: 0 auto; }
+  h1 { font-size: 1.6rem; margin-bottom: 4px; }
+  .meta { color: #a6adc8; font-size: 0.9rem; margin-bottom: 24px; }
+  .progress-bar { background: #1e1e2e; border-radius: 8px; height: 8px; margin-bottom: 24px; overflow: hidden; }
+  .progress-fill { background: #a6e3a1; height: 100%; width: 0%; transition: width 0.3s; }
+  .progress-text { text-align: center; color: #a6adc8; font-size: 0.85rem; margin-bottom: 24px; }
+  h2 { font-size: 1.2rem; color: #89b4fa; margin: 32px 0 16px; padding-bottom: 8px; border-bottom: 1px solid #313244; }
+  .fixture-ref { background: #11111b; border: 1px solid #313244; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; font-size: 0.85rem; color: #a6adc8; }
+  .fixture-ref strong { color: #cdd6f4; }
+  .fixture-ref code { background: #313244; padding: 2px 6px; border-radius: 3px; color: #f9e2af; }
+  .scenario { background: #1e1e2e; border-radius: 8px; margin-bottom: 12px; overflow: hidden; border-left: 4px solid #45475a; transition: border-color 0.2s; }
+  .scenario.pass { border-left-color: #a6e3a1; }
+  .scenario.fail { border-left-color: #f38ba8; }
+  .scenario-header { padding: 12px 16px; display: flex; align-items: center; gap: 12px; }
+  .scenario-num { background: #313244; color: #a6adc8; font-size: 0.8rem; font-weight: 600; padding: 2px 8px; border-radius: 4px; min-width: 28px; text-align: center; }
+  .scenario-title { flex: 1; font-weight: 500; }
+  .btn-group { display: flex; gap: 4px; }
+  .btn { padding: 6px 14px; border: 1px solid #45475a; border-radius: 4px; background: transparent; color: #cdd6f4; cursor: pointer; font-size: 0.85rem; transition: all 0.15s; }
+  .btn:hover { background: #313244; }
+  .btn.pass-btn.active { background: #a6e3a1; color: #1e1e2e; border-color: #a6e3a1; font-weight: 600; }
+  .btn.fail-btn.active { background: #f38ba8; color: #1e1e2e; border-color: #f38ba8; font-weight: 600; }
+  .btn.skip-btn.active { background: #f9e2af; color: #1e1e2e; border-color: #f9e2af; font-weight: 600; }
+  .scenario-details { padding: 0 16px 8px 16px; display: none; }
+  .scenario-details.open { display: block; }
+  .steps { background: #11111b; padding: 10px 14px; border-radius: 4px; font-size: 0.85rem; color: #a6adc8; margin-bottom: 8px; }
+  .steps strong { color: #cdd6f4; }
+  .scenario-notes { padding: 4px 16px 12px 16px; }
+  .notes-input { width: 100%; background: #11111b; border: 1px solid #45475a; color: #cdd6f4; padding: 8px 12px; border-radius: 4px; font-size: 0.85rem; font-family: inherit; resize: vertical; min-height: 36px; }
+  .notes-input:focus { outline: none; border-color: #89b4fa; }
+  .toggle-details { background: none; border: none; color: #6c7086; cursor: pointer; font-size: 0.75rem; padding: 4px 8px; }
+  .toggle-details:hover { color: #89b4fa; }
+  .bugs-section { margin-top: 40px; }
+  .bug-entry { background: #1e1e2e; border-radius: 8px; padding: 16px; margin-bottom: 12px; border-left: 4px solid #f38ba8; }
+  .bug-row { display: flex; gap: 12px; margin-bottom: 8px; flex-wrap: wrap; }
+  .bug-field { flex: 1; min-width: 200px; }
+  .bug-field label { display: block; color: #a6adc8; font-size: 0.8rem; margin-bottom: 4px; }
+  .bug-field input, .bug-field select, .bug-field textarea { width: 100%; background: #11111b; border: 1px solid #45475a; color: #cdd6f4; padding: 8px 12px; border-radius: 4px; font-size: 0.85rem; font-family: inherit; }
+  .bug-field textarea { resize: vertical; min-height: 60px; }
+  .bug-field input:focus, .bug-field select:focus, .bug-field textarea:focus { outline: none; border-color: #89b4fa; }
+  .bug-field select { appearance: auto; }
+  .add-bug-btn { background: #313244; border: 1px dashed #45475a; color: #a6adc8; padding: 10px; border-radius: 8px; width: 100%; cursor: pointer; font-size: 0.85rem; margin-bottom: 12px; }
+  .add-bug-btn:hover { border-color: #f38ba8; color: #f38ba8; }
+  .remove-bug { background: none; border: none; color: #f38ba8; cursor: pointer; font-size: 0.8rem; float: right; }
+  .overall-notes { margin-top: 32px; }
+  .overall-notes textarea { width: 100%; background: #11111b; border: 1px solid #45475a; color: #cdd6f4; padding: 12px; border-radius: 8px; font-size: 0.9rem; font-family: inherit; resize: vertical; min-height: 100px; }
+  .overall-notes textarea:focus { outline: none; border-color: #89b4fa; }
+  .export-section { margin-top: 32px; text-align: center; padding: 24px; }
+  .export-btn { background: #89b4fa; color: #1e1e2e; border: none; padding: 12px 32px; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; }
+  .export-btn:hover { background: #74c7ec; }
+  .export-btn:active { transform: scale(0.98); }
+  .copy-msg { color: #a6e3a1; margin-top: 8px; font-size: 0.85rem; display: none; }
+</style>
+</head>
+<body>
+
+<h1>UAT Session 5</h1>
+<div class="meta">Date: 2026-04-08 | Features: Measurement Tool + Cross-Section Slice Plane | Tester: <input id="tester-name" type="text" placeholder="Your name" style="background:#1e1e2e;border:1px solid #45475a;color:#cdd6f4;padding:4px 8px;border-radius:4px;font-size:0.85rem;width:140px;"></div>
+
+<div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+<div class="progress-text" id="progress-text">0 / 28 completed</div>
+
+<h2>Feature 9: Measurement Tool</h2>
+<div class="fixture-ref">
+  <strong>Test files</strong> (in <code>tests/fixtures/valid/</code>):<br>
+  <code>cube.stl</code> — Clean 10mm cube<br>
+  <code>l_shape.stl</code> — Asymmetric L-shaped prism (40x30x20mm)<br>
+  <strong>Run from:</strong> <code>cd .worktrees/feat-slice-plane && .venv/bin/python -m meshscope</code>
+</div>
+<div id="feature9"></div>
+
+<h2>Feature 10: Cross-Section Slice Plane</h2>
+<div class="fixture-ref">
+  <strong>Test files:</strong> <code>cube.stl</code>, <code>l_shape.stl</code>, <code>open_box.stl</code><br>
+  Use L-shape for slice tests — asymmetric shape makes clipping direction visible.
+</div>
+<div id="feature10"></div>
+
+<div class="bugs-section">
+  <h2>Bugs Found</h2>
+  <div id="bugs-list"></div>
+  <button class="add-bug-btn" onclick="addBug()">+ Add Bug</button>
+</div>
+
+<div class="overall-notes">
+  <h2>Overall Notes</h2>
+  <textarea id="overall-notes" placeholder="Free-form observations, UX concerns, suggestions, things that felt wrong even if they technically worked..."></textarea>
+</div>
+
+<div class="export-section">
+  <button class="export-btn" onclick="exportResults()">Copy Results to Clipboard</button>
+  <div class="copy-msg" id="copy-msg">Copied! Paste into terminal or save to submissions folder.</div>
+</div>
+
+<script>
+const scenarios = [
+  // --- Feature 9: Measurement Tool ---
+  { id: 1, feature: 9, title: "Measure action disabled with no mesh",
+    steps: "1. Launch app without loading any file\n2. Check Measure button in toolbar and Edit menu",
+    expected: "Measure button and menu item are greyed out." },
+
+  { id: 2, feature: 9, title: "Toggle measure mode with M key",
+    steps: "1. Open cube.stl\n2. Press M",
+    expected: "Cursor changes to crosshair. Status bar shows 'Measure mode — click two points on mesh surface'." },
+
+  { id: 3, feature: 9, title: "Place first measurement point",
+    steps: "1. Open cube.stl, enter measure mode (M)\n2. Click on the mesh surface",
+    expected: "Colored dot appears at click point. Status bar shows 'Point A placed — click second point'." },
+
+  { id: 4, feature: 9, title: "Complete a measurement",
+    steps: "1. Continue from scenario 3\n2. Click a second point on the mesh",
+    expected: "Line drawn between points with numbered endpoints. Distance appears in Info Panel Measurements section (e.g., '10.0 mm')." },
+
+  { id: 5, feature: 9, title: "Measurement shows coordinates in info panel",
+    steps: "1. After completing a measurement\n2. Check the Measurements section in the info panel",
+    expected: "Shows: colored square, #1, distance in mm, and A/B coordinates." },
+
+  { id: 6, feature: 9, title: "Place three simultaneous measurements",
+    steps: "1. Open l_shape.stl, enter measure mode\n2. Place 3 measurements on different parts of the mesh",
+    expected: "All 3 visible with different colors (amber, blue, green). All 3 listed in info panel." },
+
+  { id: 7, feature: 9, title: "Fourth measurement replaces oldest (FIFO)",
+    steps: "1. With 3 measurements active\n2. Place a 4th measurement",
+    expected: "Oldest measurement (first placed) disappears. New one takes its color/number. Status bar mentions 'oldest measurement replaced'." },
+
+  { id: 8, feature: 9, title: "Click on empty space shows no-hit message",
+    steps: "1. In measure mode\n2. Click on empty background (not on mesh)",
+    expected: "Status bar shows 'No surface at click point'. No point placed." },
+
+  { id: 9, feature: 9, title: "Left-click does NOT orbit in measure mode",
+    steps: "1. In measure mode\n2. Left-click and drag on the mesh",
+    expected: "Mesh does NOT rotate. Left-click is consumed by measurement tool." },
+
+  { id: 10, feature: 9, title: "Right-click drag still zooms in measure mode",
+    steps: "1. In measure mode\n2. Right-click and drag",
+    expected: "Camera zooms in/out normally." },
+
+  { id: 11, feature: 9, title: "Scroll wheel still works in measure mode",
+    steps: "1. In measure mode\n2. Scroll mouse wheel",
+    expected: "Camera zooms in/out normally." },
+
+  { id: 12, feature: 9, title: "Exit measure mode with M key",
+    steps: "1. In measure mode\n2. Press M again",
+    expected: "Cursor returns to arrow. Status bar shows mesh info. Measurements remain visible." },
+
+  { id: 13, feature: 9, title: "Exit measure mode discards pending point",
+    steps: "1. Enter measure mode, place point A (one click)\n2. Press M to exit before placing point B",
+    expected: "Pending point A marker disappears. No measurement created." },
+
+  { id: 14, feature: 9, title: "Clear Measurements from Edit menu",
+    steps: "1. Place 1-2 measurements\n2. Edit > Clear Measurements",
+    expected: "All measurement lines and info panel entries removed. Status bar shows 'Measurements cleared'." },
+
+  { id: 15, feature: 9, title: "Measurements cleared on transform",
+    steps: "1. Place a measurement\n2. Ctrl+T, scale by 2x, OK",
+    expected: "Measurements cleared. Status bar mentions 'Measurements cleared — mesh geometry changed'." },
+
+  { id: 16, feature: 9, title: "Measurements cleared on undo",
+    steps: "1. Scale mesh, place measurement, then Ctrl+Z (undo scale)",
+    expected: "Measurements cleared when mesh geometry changes via undo." },
+
+  { id: 17, feature: 9, title: "Measure action enabled after file load",
+    steps: "1. Open cube.stl\n2. Check Measure button",
+    expected: "Measure button is enabled." },
+
+  // --- Feature 10: Cross-Section Slice Plane ---
+  { id: 18, feature: 10, title: "Slice action disabled with no mesh",
+    steps: "1. Launch app without loading any file\n2. Check for Slice button in toolbar and View menu",
+    expected: "Slice button and menu item are greyed out." },
+
+  { id: 19, feature: 10, title: "Toggle slice mode with C key",
+    steps: "1. Open l_shape.stl\n2. Press C",
+    expected: "Translucent plane appears through model center. Floating overlay panel appears top-right with X/Y/Z and Reset buttons. Status bar shows slice message." },
+
+  { id: 20, feature: 10, title: "Drag plane to move",
+    steps: "1. Activate slice (C)\n2. Grab the center handle of the plane and drag",
+    expected: "Plane moves along its normal. Mesh clips in real-time as you drag. Cross-section shows terracotta fill color." },
+
+  { id: 21, feature: 10, title: "Rotate plane with edge handles",
+    steps: "1. With slice active\n2. Grab an edge/rotation handle and drag to tilt the plane",
+    expected: "Plane rotates to arbitrary angle. Clip updates in real-time." },
+
+  { id: 22, feature: 10, title: "X preset button",
+    steps: "1. With slice active\n2. Click X button in floating overlay",
+    expected: "Plane snaps to YZ plane through model center (normal along X axis). Status bar shows 'Slice plane: X axis'." },
+
+  { id: 23, feature: 10, title: "Y preset button",
+    steps: "1. Click Y button in overlay",
+    expected: "Plane snaps to XZ plane through model center." },
+
+  { id: 24, feature: 10, title: "Z preset button",
+    steps: "1. Click Z button in overlay",
+    expected: "Plane snaps to XY plane through model center." },
+
+  { id: 25, feature: 10, title: "Reset button",
+    steps: "1. Drag plane away from center\n2. Click Reset in overlay",
+    expected: "Plane returns to model center at current orientation. Status bar shows 'Slice plane reset to model center'." },
+
+  { id: 26, feature: 10, title: "Exit slice mode with Escape",
+    steps: "1. With slice active\n2. Press Escape",
+    expected: "Plane removed. Full mesh restored. Overlay panel hidden." },
+
+  { id: 27, feature: 10, title: "Slice persists through transform",
+    steps: "1. Open l_shape.stl, activate slice (C)\n2. Scale mesh 2x (Ctrl+T)",
+    expected: "Plane stays at world-space position. Clip recalculated on larger mesh." },
+
+  { id: 28, feature: 10, title: "Slice removed on new file load",
+    steps: "1. Activate slice on l_shape.stl\n2. Open cube.stl (Ctrl+O)",
+    expected: "Slice plane removed. Cube displayed normally without clipping." },
+];
+
+function renderScenarios() {
+  const f9 = document.getElementById('feature9');
+  const f10 = document.getElementById('feature10');
+  scenarios.forEach(s => {
+    const container = s.feature === 9 ? f9 : f10;
+    container.innerHTML += '<div class="scenario" id="scenario-' + s.id + '">' +
+      '<div class="scenario-header">' +
+        '<span class="scenario-num">' + s.id + '</span>' +
+        '<span class="scenario-title">' + s.title + '</span>' +
+        '<button class="toggle-details" onclick="toggleDetails(' + s.id + ')">details</button>' +
+        '<div class="btn-group">' +
+          '<button class="btn pass-btn" onclick="setResult(' + s.id + ',\'pass\',this)">Pass</button>' +
+          '<button class="btn fail-btn" onclick="setResult(' + s.id + ',\'fail\',this)">Fail</button>' +
+          '<button class="btn skip-btn" onclick="setResult(' + s.id + ',\'skip\',this)">Skip</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="scenario-details" id="details-' + s.id + '">' +
+        '<div class="steps"><strong>Steps:</strong><br>' + s.steps.replace(/\n/g,'<br>') + '</div>' +
+        '<div class="steps"><strong>Expected:</strong><br>' + s.expected + '</div>' +
+      '</div>' +
+      '<div class="scenario-notes">' +
+        '<textarea class="notes-input" id="notes-' + s.id + '" placeholder="Notes — observations, issues, anything worth recording"></textarea>' +
+      '</div>' +
+    '</div>';
+  });
+}
+
+const results = {};
+
+function setResult(id, result, btn) {
+  results[id] = result;
+  const sc = document.getElementById('scenario-' + id);
+  sc.className = 'scenario ' + (result === 'skip' ? '' : result);
+  sc.querySelectorAll('.btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  updateProgress();
+}
+
+function toggleDetails(id) {
+  document.getElementById('details-' + id).classList.toggle('open');
+}
+
+function updateProgress() {
+  const done = Object.keys(results).length;
+  const pct = (done / scenarios.length * 100).toFixed(0);
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('progress-text').textContent = done + ' / ' + scenarios.length + ' completed';
+}
+
+var bugCount = 0;
+function addBug() {
+  bugCount++;
+  var n = bugCount;
+  document.getElementById('bugs-list').innerHTML +=
+    '<div class="bug-entry" id="bug-' + n + '">' +
+      '<button class="remove-bug" onclick="document.getElementById(\'bug-' + n + '\').remove()">remove</button>' +
+      '<div class="bug-row">' +
+        '<div class="bug-field"><label>Severity</label><select id="bug-sev-' + n + '">' +
+          '<option>SEV-1 (crash/data loss)</option><option>SEV-2 (broken, workaround exists)</option>' +
+          '<option selected>SEV-3 (minor UX)</option><option>SEV-4 (polish/enhancement)</option>' +
+        '</select></div>' +
+        '<div class="bug-field"><label>Feature</label><select id="bug-feat-' + n + '">' +
+          '<option>9 - Measurement Tool</option><option>10 - Cross-Section Slice Plane</option>' +
+        '</select></div>' +
+      '</div>' +
+      '<div class="bug-field"><label>Description</label><input id="bug-desc-' + n + '" placeholder="What went wrong?"></div>' +
+      '<div class="bug-field" style="margin-top:8px"><label>Steps to Reproduce</label><textarea id="bug-steps-' + n + '" placeholder="1. ...\n2. ...\n3. ..."></textarea></div>' +
+      '<div class="bug-field" style="margin-top:8px"><label>Expected vs Actual</label><textarea id="bug-exp-' + n + '" placeholder="Expected: ...\nActual: ..."></textarea></div>' +
+    '</div>';
+}
+
+function exportResults() {
+  var tester = document.getElementById('tester-name').value || 'Unknown';
+  var md = '# UAT Session 5 Results\n\n';
+  md += '**Date:** 2026-04-08\n';
+  md += '**Tester:** ' + tester + '\n';
+  md += '**Features:** Measurement Tool, Cross-Section Slice Plane\n\n';
+
+  var pass = 0, fail = 0, skip = 0;
+  for (var k in results) {
+    if (results[k] === 'pass') pass++;
+    else if (results[k] === 'fail') fail++;
+    else if (results[k] === 'skip') skip++;
+  }
+  var untested = scenarios.length - Object.keys(results).length;
+  md += '**Summary:** ' + pass + ' passed, ' + fail + ' failed, ' + skip + ' skipped, ' + untested + ' not tested\n\n---\n\n';
+
+  md += '## Scenarios\n\n';
+  md += '| # | Scenario | Result | Notes |\n';
+  md += '|---|---|---|---|\n';
+  scenarios.forEach(function(s) {
+    var r = results[s.id] || 'not tested';
+    var icon = r === 'pass' ? 'PASS' : r === 'fail' ? 'FAIL' : r === 'skip' ? 'SKIP' : '-';
+    var el = document.getElementById('notes-' + s.id);
+    var notes = el ? el.value.replace(/\|/g, '/').replace(/\n/g, ' ') : '';
+    md += '| ' + s.id + ' | ' + s.title + ' | ' + icon + ' | ' + notes + ' |\n';
+  });
+
+  var bugEntries = document.querySelectorAll('.bug-entry');
+  if (bugEntries.length > 0) {
+    md += '\n---\n\n## Bugs Found\n\n';
+    var i = 0;
+    bugEntries.forEach(function(el) {
+      i++;
+      var id = el.id.split('-')[1];
+      var sev = document.getElementById('bug-sev-' + id);
+      var feat = document.getElementById('bug-feat-' + id);
+      var desc = document.getElementById('bug-desc-' + id);
+      var steps = document.getElementById('bug-steps-' + id);
+      var exp = document.getElementById('bug-exp-' + id);
+      md += '### Bug ' + i + '\n';
+      md += '- **Severity:** ' + (sev ? sev.value : '') + '\n';
+      md += '- **Feature:** ' + (feat ? feat.value : '') + '\n';
+      md += '- **Description:** ' + (desc ? desc.value : '') + '\n';
+      md += '- **Steps:** ' + (steps ? steps.value.replace(/\n/g, '; ') : '') + '\n';
+      md += '- **Expected vs Actual:** ' + (exp ? exp.value.replace(/\n/g, '; ') : '') + '\n\n';
+    });
+  }
+
+  var overall = document.getElementById('overall-notes').value;
+  if (overall) {
+    md += '\n---\n\n## Overall Notes\n\n' + overall + '\n';
+  }
+
+  navigator.clipboard.writeText(md).then(function() {
+    var msg = document.getElementById('copy-msg');
+    msg.style.display = 'block';
+    setTimeout(function() { msg.style.display = 'none'; }, 3000);
+  });
+}
+
+renderScenarios();
+</script>
+</body>
+</html>
