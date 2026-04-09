@@ -175,6 +175,16 @@ def __init__(self, renderer: vtkRenderer) -> None
 | `set_wireframe_overlay` | `(enabled: bool) -> None` | Toggle wireframe |
 | `set_smooth_shading` | `(enabled: bool) -> None` | Toggle flat/smooth shading |
 | `fit_to_view` | `() -> None` | Auto-frame camera |
+| `pick_surface_point` | `(display_x: int, display_y: int) -> tuple[float, float, float] \| None` | Cast ray from screen coords, return 3D hit point or None |
+| `show_measurements` | `(measurements: list[Measurement]) -> None` | Display measurement line + endpoint actors |
+| `hide_measurements` | `() -> None` | Remove all measurement actors |
+| `show_pending_point` | `(point: tuple[float, float, float], index: int) -> None` | Show point A marker before B is placed |
+| `hide_pending_point` | `() -> None` | Remove pending point marker |
+| `activate_slice_plane` | `(interactor: Any) -> None` | Show plane widget + start clipping |
+| `deactivate_slice_plane` | `() -> None` | Remove plane widget, restore full mesh |
+| `set_slice_preset` | `(axis: str) -> None` | Snap plane to X/Y/Z axis through center |
+| `reset_slice_plane` | `() -> None` | Return plane to model center |
+| `update_slice_mesh` | `(polydata: vtkPolyData) -> None` | Recalculate clip after mesh change |
 
 #### Properties
 
@@ -185,6 +195,9 @@ def __init__(self, renderer: vtkRenderer) -> None
 | `has_mesh` | `bool` |
 | `wireframe_overlay_enabled` | `bool` |
 | `smooth_shading_enabled` | `bool` |
+| `measurements_visible` | `bool` |
+| `slice_active` | `bool` |
+| `slice_current_preset` | `str \| None` |
 
 ---
 
@@ -214,3 +227,69 @@ Diagonal hatching for overflow regions.
 def get_overflow_text(bed_x: int, bed_y: int, bed_z: int, bbox: BoundingBox) -> str | None
 ```
 Returns overflow description text, or None if model fits.
+
+---
+
+## Module: `meshscope.vtk_adapter.measurement_manager`
+
+### Constants
+
+- `MEASUREMENT_COLORS: dict[int, tuple[float, float, float]]` — 1: amber, 2: sky blue, 3: light green
+- `MEASUREMENT_LINE_WIDTH: float = 2.0`
+- `ENDPOINT_MARKER_RADIUS: float = 0.8`
+
+### `MeasurementManager`
+
+```python
+def create_measurement_actors(
+    self, point_a: tuple, point_b: tuple, index: int
+) -> list[vtkActor]
+```
+Returns [line_actor, endpoint_a_actor, endpoint_b_actor].
+
+```python
+def create_pending_point_actor(
+    self, point: tuple, index: int
+) -> vtkActor
+```
+Single endpoint marker for point A before B is placed.
+
+---
+
+## Module: `meshscope.vtk_adapter.slice_plane_manager`
+
+### Constants
+
+- `CAP_COLOR: tuple = (0.753, 0.376, 0.251)` — terracotta #c06040
+- `PLANE_WIDGET_COLOR: tuple = (0.537, 0.706, 0.980)` — theme blue #89b4fa
+
+### `SlicePlaneManager`
+
+```python
+def __init__(self, renderer: vtkRenderer, interactor: vtkRenderWindowInteractor) -> None
+def activate(self, polydata: vtkPolyData, bounds: tuple[float, ...]) -> None
+def deactivate(self) -> None
+def set_preset(self, axis: str, bounds: tuple[float, ...]) -> None
+def reset_to_center(self, bounds: tuple[float, ...]) -> None
+def update_mesh(self, polydata: vtkPolyData, bounds: tuple[float, ...]) -> None
+```
+
+Properties: `is_active -> bool`, `current_preset -> str | None`
+
+---
+
+## Module: `meshscope.ui.slice_overlay`
+
+### `SliceOverlayWidget` (QWidget)
+
+Floating overlay for slice plane controls.
+
+Signals:
+- `preset_clicked(str)` — emits "x", "y", or "z"
+- `reset_clicked()` — reset button clicked
+
+```python
+def set_active_preset(self, axis: str | None) -> None
+def show_overlay(self) -> None
+def hide_overlay(self) -> None
+```

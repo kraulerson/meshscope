@@ -15,6 +15,11 @@
 | UAT4-005 | SEV-2 | Fixed | Print Bed Visualization | Print bed overlay positioned at world origin instead of under the model — bed and model visually disconnected | Session 4 | Fix Now |
 | UAT4-006 | SEV-2 | Fixed | Scale/Rotate/Mirror | Axis button checked/selected state nearly invisible on macOS — default Qt QPushButton styling provides no visual distinction | Session 4 | Fix Now |
 | UAT4-007 | SEV-3 | Fixed | Print Bed Visualization | No X/Y/Z axis indicators at print bed origin — users cannot determine orientation in viewport | Session 4 | Fix Now |
+| UAT5-001 | SEV-2 | Fixed | Measurement Tool | Left-click in measure mode passed to VTK interactor, causing orbit rotation instead of point placement | Session 5 | Fix Now |
+| UAT5-002 | SEV-2 | Fixed | Cross-Section Slice Plane | Slice overlay panel compressed to invisible size — buttons and text not readable | Session 5 | Fix Now |
+| UAT5-003 | SEV-2 | Fixed | Cross-Section Slice Plane | Interactor obtained via roundabout GetRenderWindow().GetInteractor() chain — returned wrong object | Session 5 | Fix Now |
+| UAT5-004 | SEV-3 | Fixed | Cross-Section Slice Plane | Escape key didn't exit slice mode — keyPressEvent not reached when VTK widget had focus | Session 5 | Fix Now |
+| UAT5-005 | SEV-3 | Fixed | Cross-Section Slice Plane | Plane widget center handle too small to grab on macOS | Session 5 | Fix Now |
 
 ## Status Guide
 
@@ -44,3 +49,4 @@
 | Session 2 | 2026-04-07 | Mesh Info Panel, Format Conversion | 1 | 1 | 0 |
 | Session 3 | 2026-04-07 | Print Bed Visualization, Manifold/Watertight Check | 3 | 3 | 0 |
 | Session 4 | 2026-04-08 | Basic Mesh Repair, Scale/Rotate/Mirror | 7 | 7 | 0 |
+| Session 5 | 2026-04-08 | Measurement Tool, Cross-Section Slice Plane | 5 | 5 | 0 |

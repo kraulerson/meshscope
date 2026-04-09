@@ -229,6 +229,47 @@ def __init__(
 | `undo_stack` | `UndoStack` | Ring buffer (max 10 entries) |
 | `warnings` | `list[str]` | User-visible warnings |
 | `analysis` | `MeshAnalysis \| None` | Invalidated on any mesh mutation |
+| `measurements` | `list[Measurement]` | Max 3, FIFO replacement |
+
+### Methods
+
+```python
+def add_measurement(self, measurement: Measurement) -> None
+```
+Add a measurement. If 3 exist, removes the oldest (FIFO).
+
+```python
+def clear_measurements(self) -> None
+```
+Remove all measurements.
+
+```python
+def next_measurement_index(self) -> int
+```
+Return the next available index (1, 2, or 3). Gap-fills if a middle index is free.
+
+---
+
+## Module: `meshscope.core.mesh_data` — Measurement
+
+### `Measurement` (frozen dataclass)
+
+| Field | Type | Description |
+|---|---|---|
+| `point_a` | `tuple[float, float, float]` | Model-space coordinates in mm |
+| `point_b` | `tuple[float, float, float]` | Model-space coordinates in mm |
+| `distance_mm` | `float` | Euclidean distance |
+| `index` | `int` | Display index (1, 2, or 3) |
+
+### Functions
+
+```python
+def compute_distance(
+    point_a: tuple[float, float, float],
+    point_b: tuple[float, float, float],
+) -> float
+```
+Compute Euclidean distance between two 3D points in mm.
 
 ---
 

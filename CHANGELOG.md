@@ -21,12 +21,36 @@ for handoff clarity. Categories are ordered by impact severity.
 
 ### Security
 ### Data Model
+
 ### Added
+
+- **Feature 9 — Measurement Tool** (2026-04-08): Point-to-point distance measurement with dedicated mode (M key), vtkCellPicker ray-cast, 3-measurement FIFO cap, info panel display
+- **Feature 10 — Cross-Section Slice Plane** (2026-04-08): Interactive clipping plane (C key) with vtkImplicitPlaneWidget2, X/Y/Z presets, floating overlay, terracotta interior fill via vtkClipClosedSurface
+- Measurement dataclass with compute_distance, MeasurementManager for VTK line/endpoint actors
+- SlicePlaneManager with full VTK clipping pipeline and vtkClipPolyData fallback
+- SliceOverlayWidget floating Qt panel with preset buttons and Reset
+- Window-level Escape shortcut exits active modes (slice, measure)
+
 ### Changed
 ### Fixed
+
+- UAT5: Measurement left-click consumed in measure mode to prevent VTK orbit rotation
+- UAT5: Slice overlay panel enlarged for visibility (was compressed to invisible)
+- UAT5: Interactor passthrough fixed — pass QVTKRenderWindowInteractor directly
+- UAT5: InsideOut enabled on fallback vtkClipPolyData clipper
+- UAT5: Measurement invalidation triggers render to clear visuals on undo
+
 ### Removed
+
 ### Infrastructure
+
+- Added `--include-module=vtkmodules.vtkInteractionWidgets` to Nuitka config
+
 ### Documentation
+
+- Design specs for Features 9 and 10 in `docs/superpowers/specs/`
+- Implementation plans for Features 9 and 10 in `docs/superpowers/plans/`
+- UAT Session 5 interactive HTML test form (28 scenarios, 28/28 passing)
 
 ## [0.1.0-alpha] — Phase 2 Construction (2026-04-06 – 2026-04-08)
 

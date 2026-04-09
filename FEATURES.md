@@ -116,3 +116,31 @@
 **Related ADRs:** None
 **Test Coverage:** Unit (mesh_transform), UI (main_window, transform_dialog)
 **Known Limitations:** None
+
+---
+
+## Feature 9: Measurement Tool
+
+**Phase Built:** 2
+**Build Date:** 2026-04-08
+**Status:** Complete
+**Summary:** Point-to-point distance measurement on mesh surfaces. Dedicated measure mode (M key) with crosshair cursor. Click two points on the mesh to measure Euclidean distance in mm. Up to 3 simultaneous measurements with FIFO replacement. Distances displayed in info panel Measurements section with color-coded entries and coordinates.
+**Design Spec:** `docs/superpowers/specs/2026-04-08-measurement-tool-design.md`
+**Key Interfaces:** [`docs/api and interfaces/mesh-operations.md`](docs/api%20and%20interfaces/mesh-operations.md)
+**Related ADRs:** None
+**Test Coverage:** Unit (measurement dataclass, compute_distance, MeasurementManager, MeshDocument FIFO), UI (measure mode, event filter, info panel, invalidation)
+**Known Limitations:** Left-click orbit disabled in measure mode (right-click/scroll still work)
+
+---
+
+## Feature 10: Cross-Section Slice Plane
+
+**Phase Built:** 2
+**Build Date:** 2026-04-08
+**Status:** Complete
+**Summary:** Interactive clipping plane that slices through the mesh to reveal interior cross-sections. Uses VTK's vtkImplicitPlaneWidget2 for direct manipulation — drag to move, rotate handles to tilt. X/Y/Z preset buttons and Reset in a floating overlay panel. Cross-section interior filled with terracotta color. Toggle with C key.
+**Design Spec:** `docs/superpowers/specs/2026-04-08-cross-section-slice-plane-design.md`
+**Key Interfaces:** [`docs/api and interfaces/viewport.md`](docs/api%20and%20interfaces/viewport.md)
+**Related ADRs:** None
+**Test Coverage:** Unit (SlicePlaneManager activation, presets, reset, clipping pipeline), UI (slice toggle, overlay, SceneManager delegation)
+**Known Limitations:** vtkClipClosedSurface cap generation may fall back to open clip on non-manifold meshes
