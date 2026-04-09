@@ -1,0 +1,125 @@
+"""Tests for slice mode UI: SliceOverlayWidget and MainWindow integration."""
+
+import pytest
+from PySide6.QtWidgets import QApplication, QPushButton
+
+from meshscope.ui.slice_overlay import SliceOverlayWidget
+
+
+@pytest.fixture()
+def qapp() -> QApplication:
+    app = QApplication.instance()
+    if app is None:
+        app = QApplication([])
+    return app
+
+
+class TestSliceOverlayWidgetConstruction:
+    def test_creates_without_parent(self, qapp: QApplication) -> None:
+        widget = SliceOverlayWidget(None)
+        assert widget is not None
+        widget.close()
+
+    def test_has_preset_buttons(self, qapp: QApplication) -> None:
+        widget = SliceOverlayWidget(None)
+        x_btn = widget.findChild(QPushButton, "btn_x")
+        y_btn = widget.findChild(QPushButton, "btn_y")
+        z_btn = widget.findChild(QPushButton, "btn_z")
+        assert x_btn is not None
+        assert y_btn is not None
+        assert z_btn is not None
+        widget.close()
+
+    def test_has_reset_button(self, qapp: QApplication) -> None:
+        widget = SliceOverlayWidget(None)
+        reset_btn = widget.findChild(QPushButton, "btn_reset")
+        assert reset_btn is not None
+        widget.close()
+
+    def test_initially_hidden(self, qapp: QApplication) -> None:
+        widget = SliceOverlayWidget(None)
+        assert not widget.isVisible()
+        widget.close()
+
+
+class TestSliceOverlayWidgetSignals:
+    def test_x_button_emits_preset_signal(self, qapp: QApplication) -> None:
+        widget = SliceOverlayWidget(None)
+        received: list[str] = []
+        widget.preset_clicked.connect(lambda axis: received.append(axis))
+
+        x_btn = widget.findChild(QPushButton, "btn_x")
+        x_btn.click()
+        assert received == ["x"]
+        widget.close()
+
+    def test_y_button_emits_preset_signal(self, qapp: QApplication) -> None:
+        widget = SliceOverlayWidget(None)
+        received: list[str] = []
+        widget.preset_clicked.connect(lambda axis: received.append(axis))
+
+        y_btn = widget.findChild(QPushButton, "btn_y")
+        y_btn.click()
+        assert received == ["y"]
+        widget.close()
+
+    def test_z_button_emits_preset_signal(self, qapp: QApplication) -> None:
+        widget = SliceOverlayWidget(None)
+        received: list[str] = []
+        widget.preset_clicked.connect(lambda axis: received.append(axis))
+
+        z_btn = widget.findChild(QPushButton, "btn_z")
+        z_btn.click()
+        assert received == ["z"]
+        widget.close()
+
+    def test_reset_button_emits_reset_signal(self, qapp: QApplication) -> None:
+        widget = SliceOverlayWidget(None)
+        received: list[bool] = []
+        widget.reset_clicked.connect(lambda: received.append(True))
+
+        reset_btn = widget.findChild(QPushButton, "btn_reset")
+        reset_btn.click()
+        assert received == [True]
+        widget.close()
+
+
+class TestSliceOverlayWidgetActivePreset:
+    def test_set_active_preset_x(self, qapp: QApplication) -> None:
+        widget = SliceOverlayWidget(None)
+        widget.set_active_preset("x")
+        x_btn = widget.findChild(QPushButton, "btn_x")
+        assert x_btn.property("active") is True
+        widget.close()
+
+    def test_set_active_preset_clears_others(self, qapp: QApplication) -> None:
+        widget = SliceOverlayWidget(None)
+        widget.set_active_preset("x")
+        y_btn = widget.findChild(QPushButton, "btn_y")
+        z_btn = widget.findChild(QPushButton, "btn_z")
+        assert y_btn.property("active") is not True
+        assert z_btn.property("active") is not True
+        widget.close()
+
+    def test_set_active_preset_none_clears_all(self, qapp: QApplication) -> None:
+        widget = SliceOverlayWidget(None)
+        widget.set_active_preset("x")
+        widget.set_active_preset(None)
+        x_btn = widget.findChild(QPushButton, "btn_x")
+        assert x_btn.property("active") is not True
+        widget.close()
+
+
+class TestSliceOverlayWidgetVisibility:
+    def test_show_overlay(self, qapp: QApplication) -> None:
+        widget = SliceOverlayWidget(None)
+        widget.show_overlay()
+        assert widget.isVisible()
+        widget.close()
+
+    def test_hide_overlay(self, qapp: QApplication) -> None:
+        widget = SliceOverlayWidget(None)
+        widget.show_overlay()
+        widget.hide_overlay()
+        assert not widget.isVisible()
+        widget.close()
