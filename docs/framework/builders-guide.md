@@ -793,8 +793,6 @@ Direct the agent to generate the CI configuration:
 > **⟁ PLATFORM MODULE:** Reference your Platform Module for platform-specific CI steps: cross-platform build matrix, code signing, packaging verification, platform-specific test runners.
 
 **7. Verify before building the first feature:**
-- [ ] Remote repository exists and is accessible (push a test commit if needed)
-- [ ] Branch protection is configured on main (PRs required, status checks required, force push disabled)
 - [ ] Linter runs clean
 - [ ] Test runner executes (0 tests, 0 failures)
 - [ ] Initial data model applies successfully
@@ -821,6 +819,9 @@ Direct the agent to write test cases based on the User Journey and Data Contract
 
 Confirm the tests fail (feature code doesn't exist yet).
 
+**Process checkpoint:** `scripts/process-checklist.sh --complete-step build_loop:tests_written`
+After verifying tests fail: `scripts/process-checklist.sh --complete-step build_loop:tests_verified_failing`
+
 **Agent persona — QA Test Engineer:** When writing tests, the agent adopts the mindset of a senior QA engineer who has never seen the code. Start fresh with no context about the implementation. This is a business application — quality is more important than positivity. Be critical, extremely thorough, and meticulous. Write tests to catch bugs, not to confirm the code works. You have seen 1,000 bugs in your career — you know where they hide: off-by-one errors, null handling, race conditions, auth bypass, state corruption on retry, Unicode edge cases, empty collections, maximum-length inputs. Test the boundaries, not the center. Write at least one test that you expect the developer to push back on as "too paranoid."
 
 #### Step 2.3 — Implement the Feature
@@ -829,6 +830,8 @@ Confirm the tests fail (feature code doesn't exist yet).
 2. Run the test suite. All tests must pass.
 3. Manual validation: verify the feature works as expected.
 4. Direct specific fixes for any discrepancies.
+
+**Process checkpoint:** `scripts/process-checklist.sh --complete-step build_loop:implemented`
 
 > **⟁ PLATFORM MODULE:** Reference your Platform Module for platform-specific manual validation steps (e.g., testing on each target OS, verifying native integration, checking platform-specific behavior).
 
@@ -858,6 +861,8 @@ Consolidate findings from all agents before remediation. Without Superpowers, ru
    - [ ] Platform-specific security: See Platform Module
 4. Fix findings. Verify tests still pass.
 
+**Process checkpoint:** `scripts/process-checklist.sh --complete-step build_loop:security_audit`
+
 **AI-specific caution areas:** AI-generated code is disproportionately likely to have subtle issues in: complex state management (race conditions), data access efficiency, authentication edge cases, and content security configuration. Apply extra scrutiny in these areas.
 
 **Concrete mitigations for AI-generated code risks:**
@@ -886,12 +891,16 @@ Direct the agent to produce:
 
 **Parallel execution:** CHANGELOG, interface documentation, and ADRs are independent text-generation tasks. Dispatch as parallel subagents from the same codebase snapshot, then merge results into the Bible update.
 
-- **CHANGELOG.md:** Feature name, date, new interfaces/endpoints/commands.
-- **Interface Documentation:** Every new API endpoint, command, or user-facing interface with contracts and error codes.
-- **Architecture/UX Decision Record:** For non-trivial decisions.
-- **Project Bible Update:** New interfaces, data model changes, new configuration, new dependencies.
+- **CHANGELOG.md:** Use [Keep a Changelog](https://keepachangelog.com/) format with 8 categories ordered by impact: Security, Data Model, Added, Changed, Fixed, Removed, Infrastructure, Documentation. See `templates/generated/changelog.tmpl` for category definitions.
+- **FEATURES.md:** Add a new section for each completed feature using the template structure: summary, key interfaces, related ADRs, test coverage, known limitations. See `templates/generated/features.tmpl`.
+- **Interface Documentation:** Every new API endpoint, command, or user-facing interface with contracts and error codes. Store in `docs/api and interfaces/`. Format is platform-dependent — see your Platform Module.
+- **Architecture/UX Decision Record:** For non-trivial decisions, create a numbered ADR in `docs/ADR documentation/` using the standard template (Status, Context, Decision, Consequences). See `templates/generated/adr.tmpl`. Number sequentially: `0001-title.md`, `0002-title.md`, etc.
+- **Project Bible Update:** New interfaces, data model changes, new configuration, new dependencies. Update the `<!-- Last Updated: YYYY-MM-DD -->` marker on every modified section. Verify cross-section consistency after every update.
 
 Verify the Bible still accurately reflects the codebase. Commit and merge.
+
+**Process checkpoint:** `scripts/process-checklist.sh --complete-step build_loop:documentation_updated`
+After recording the feature with `test-gate.sh --record-feature`: `scripts/process-checklist.sh --complete-step build_loop:feature_recorded`
 
 #### Step 2.6 — Data Model Changes (if needed)
 
@@ -903,6 +912,8 @@ Verify the Bible still accurately reflects the codebase. Commit and merge.
 **NEVER modify the data model directly.** All changes go through the versioning tool.
 
 #### Step 2.7 — UAT Testing Session
+
+**Process checkpoint:** Start the UAT session: `scripts/process-checklist.sh --start-uat N`
 
 **Before starting the next feature, check the test gate:**
 ```bash
@@ -966,6 +977,9 @@ After the session completes:
 ```bash
 scripts/test-gate.sh --reset-counter
 ```
+
+Mark each UAT step as you complete it: `scripts/process-checklist.sh --complete-step uat_session:STEP_ID`
+Steps in order: `agents_dispatched`, `template_generated`, `orchestrator_notified`, `results_received`, `completeness_verified`, `bugs_consolidated`, `triage_complete`, `remediation_complete`, `gate_passed`.
 
 ---
 
@@ -1051,6 +1065,8 @@ scripts/test-gate.sh --check-phase-gate
 
 **Objective:** Assume everything is broken. Prove otherwise.
 
+**Process checkpoint:** Start Phase 3 validation: `scripts/process-checklist.sh --start-phase3`
+
 ---
 
 **Phase 3 Parallel Execution:** Steps 3.1 through 3.5 are independent validation tasks with no cross-dependencies. For maximum efficiency, dispatch all as parallel subagents:
@@ -1073,6 +1089,8 @@ Consolidate all findings into a single remediation list. Fix critical findings f
 1. Install the testing framework per your Platform Module.
 2. Direct the agent to write an E2E/integration test suite automating the entire User Journey.
 3. Run it. Fix failures — these are integration gaps.
+
+**Process checkpoint:** `scripts/process-checklist.sh --complete-step phase3_validation:integration_testing`
 
 ---
 
@@ -1116,6 +1134,8 @@ SAST tools produce false positives. Silencing them without documentation creates
 
 Never disable an entire SAST rule category to silence a single false positive. Suppress at the line level only.
 
+**Process checkpoint:** `scripts/process-checklist.sh --complete-step phase3_validation:security_hardening`
+
 ---
 
 ### Step 3.3: Chaos & Edge-Case Testing
@@ -1128,6 +1148,8 @@ Direct the agent to implement:
 - **Global error boundaries:** Catch unhandled errors, display user-friendly recovery
 
 Run the full test suite. Nothing should break.
+
+**Process checkpoint:** `scripts/process-checklist.sh --complete-step phase3_validation:chaos_testing`
 
 ---
 
@@ -1147,6 +1169,8 @@ Core requirements regardless of platform:
 - **Color-blind user:** "Red and green look the same to me. Does any UI element use color alone to communicate state? Are errors, warnings, and success indicated with text/icons in addition to color?"
 Identify every interaction that fails these tests. Report as "A screen reader user cannot [specific failure]" — not "Missing aria-label."
 
+**Process checkpoint:** `scripts/process-checklist.sh --complete-step phase3_validation:accessibility_audit`
+
 ---
 
 ### Step 3.5: Performance Audit
@@ -1161,6 +1185,8 @@ Core requirements:
 
 **Agent persona — Power-Constrained Device User:** For performance testing, the agent adopts the mindset of a user on underpowered hardware. Start fresh with no knowledge of the tech stack. This is a business application — quality is more important than positivity. Be critical, extremely thorough, and meticulous. "I'm on a 3-year-old phone with 2GB RAM, or a Chromebook with a slow CPU, or on a flaky 2G connection. Does the app load? Does it stutter when I scroll? Does it drain my battery in an hour? Can I use it at all on slow networks?" Test: startup time on minimum hardware, first interaction latency, memory usage over 10 minutes of active use, behavior on throttled network (2G/3G), offline fallback behavior.
 
+**Process checkpoint:** `scripts/process-checklist.sh --complete-step phase3_validation:performance_audit`
+
 ---
 
 ### Step 3.5.5: Contract Testing (Standard+ Track)
@@ -1169,6 +1195,8 @@ For applications with interfaces consumed by other systems (APIs, IPC, file form
 - Document expected contracts
 - Write tests verifying actual behavior matches documented contracts
 - Schema validation tests for data formats
+
+**Process checkpoint:** `scripts/process-checklist.sh --complete-step phase3_validation:contract_testing`
 
 ---
 
@@ -1197,6 +1225,8 @@ Direct the agent to create `docs/test-results/` and save:
 File naming convention: `[date]_[scan-type]_[pass|fail].[ext]` (e.g., `2026-04-02_semgrep_pass.json`).
 
 These artifacts serve as the audit evidence for Phase 3 completion. They are referenced in `APPROVAL_LOG.md` (Phase 3 → Phase 4 section) and included in the HANDOFF.md. Update the Approval Log with the go-live approval(s) before proceeding to Phase 4 deployment.
+
+**Process checkpoint:** `scripts/process-checklist.sh --complete-step phase3_validation:results_archived`
 
 ---
 
@@ -1247,6 +1277,8 @@ These artifacts serve as the audit evidence for Phase 3 completion. They are ref
 
 **Objective:** Build, package, distribute, monitor, maintain.
 
+**Process checkpoint:** Start Phase 4 release: `scripts/process-checklist.sh --start-phase4`
+
 ---
 
 ### Step 4.1: Production Build & Distribution
@@ -1273,6 +1305,8 @@ For applications with active users, select a deployment strategy that limits bla
 | **Feature flags** | High-risk features on any track | Deploy code dark; enable for subset of users; monitor before full rollout |
 
 Light Track projects MAY use cut-over deployment. Standard and Full Track projects SHOULD use blue/green or rolling deployment. Document the chosen strategy in the Project Bible.
+
+**Process checkpoint:** `scripts/process-checklist.sh --complete-step phase4_release:production_build`
 
 ---
 
@@ -1309,6 +1343,8 @@ Before the application goes live, the Orchestrator MUST test the rollback proced
 
 If the rollback procedure fails, fix it and re-test before proceeding to production launch. A rollback procedure that has never been tested is not a rollback procedure — it is a hope.
 
+**Process checkpoint:** `scripts/process-checklist.sh --complete-step phase4_release:rollback_tested`
+
 ---
 
 ### Step 4.2: Go-Live Verification
@@ -1335,6 +1371,8 @@ Walk through the production application manually on each target platform:
 
 For subsequent releases, append to RELEASE_NOTES.md with user-facing descriptions of what changed, what was fixed, and what's known-broken.
 
+**Process checkpoint:** `scripts/process-checklist.sh --complete-step phase4_release:go_live_verified`
+
 ---
 
 ### Step 4.3: Monitoring Setup
@@ -1345,6 +1383,8 @@ Core requirements:
 - Error/crash reporting configured and verified
 - Alerting rules: notify on unhandled errors and critical failures
 - Uptime/health monitoring (if applicable to the platform)
+
+**Process checkpoint:** `scripts/process-checklist.sh --complete-step phase4_release:monitoring_configured`
 
 ---
 
@@ -1391,6 +1431,8 @@ Direct the agent to generate `HANDOFF.md`:
 
 **Reality check:** Have someone attempt development setup and issue triage using only this document. Fix every gap they find. Repeat.
 
+**Process checkpoint:** `scripts/process-checklist.sh --complete-step phase4_release:handoff_written`
+
 **Agent persona — New Maintainer:** When writing handoff documentation, the agent adopts the mindset of a developer who is taking over this project on Monday with zero context. This is a business application — quality is more important than positivity. Be critical, extremely thorough, and meticulous. "I have 2 hours to get a dev environment running and fix a production bug. Every command must work verbatim. Every file path must be correct. Every dependency must be listed with version and install command." Test your own docs: could someone follow these instructions from a blank machine to a running dev environment to a fixed bug, using nothing but this document?
 
 ---
@@ -1427,24 +1469,32 @@ Direct the agent to generate `HANDOFF.md`:
 
 ## Appendix A: Document Artifacts Produced Per Project
 
-| Artifact | Phase | Purpose |
-|---|---|---|
-| `PRODUCT_MANIFESTO.md` | 0 | Requirements, MVP Cutline, Revenue Model, Competency Matrix |
-| `PROJECT_BIBLE.md` | 1 | Architecture, data model, threat model, test strategy, risks, coding standards, build strategy |
-| Architecture Decision Records | 1-2 | Every major choice with alternatives and rationale |
-| `CONTRIBUTING.md` | 2 | Coding standards for AI reference |
-| `CHANGELOG.md` | 2+ | Feature log, interfaces, data model changes, configuration |
-| Interface Documentation | 2+ | Per-endpoint/command/UI contracts, error codes |
-| Feature Documentation | 2+ | Component behavior, business logic rationale, UX decisions |
-| CI/CD Configuration | 2 | Automated testing, scanning, building, packaging |
-| `docs/test-results/` | 3 | Archived scan reports, E2E results, accessibility audits, threat model validation — audit evidence |
-| `sbom.json` | 3 | Software Bill of Materials |
-| Security Audit Logs | 3 | SAST/DAST results, remediation actions |
-| Performance Baselines | 3 | Metrics for future comparison |
-| `USER_GUIDE.md` | 3 | End-user documentation: how to use the application, FAQ, support contact |
-| `docs/INCIDENT_RESPONSE.md` | 4 | Severity classification, notification chains, rollback |
-| `RELEASE_NOTES.md` | 4 | User-facing: what the app does, known limitations, change history |
-| `HANDOFF.md` | 4 | Complete transfer document |
+| Artifact | Phase | Purpose | Location | Template |
+|---|---|---|---|---|
+| `CLAUDE.md` | 0 (init) | Agent instructions, project state, tool configuration | Root | `claude-md.tmpl` |
+| `PROJECT_INTAKE.md` | 0 (init) | Structured requirements collection | Root | `project-intake.md` |
+| `APPROVAL_LOG.md` | 0 (init) | Phase gate approval audit trail (append-only) | Root | `approval-log-*.tmpl` |
+| `PRODUCT_MANIFESTO.md` | 0 | Requirements, MVP Cutline, Revenue Model, Competency Matrix | Root | `product-manifesto.tmpl` |
+| `PROJECT_BIBLE.md` | 1 | Architecture, data model, threat model, test strategy, coding standards | Root | `project-bible.tmpl` |
+| Architecture Decision Records | 1-2 | Every major choice with alternatives and rationale | `docs/ADR documentation/NNNN-title.md` | `adr.tmpl` |
+| `CONTRIBUTING.md` | 2 | Coding standards for AI reference | Root | — |
+| `FEATURES.md` | 2+ | Living feature index — what each feature does, interfaces, ADRs, test coverage | Root | `features.tmpl` |
+| `CHANGELOG.md` | 2+ | Change log (8 categories, append-only) | Root | `changelog.tmpl` |
+| `BUGS.md` | 2+ | Bug tracking with severity, status, disposition | Root | `bugs.tmpl` |
+| Interface Documentation | 2+ | Per-endpoint/command/UI contracts, error codes | `docs/api and interfaces/` | — |
+| CI/CD Configuration | 2 | Automated testing, scanning, building, packaging | `.github/workflows/` | `pipelines/ci/*.yml`, `pipelines/release/*.yml` |
+| `docs/test-results/` | 3 | Archived scan reports, E2E results, UAT sessions, threat model validation | `docs/test-results/[date]_[type]_[pass|fail].[ext]` | — |
+| `sbom.json` | 3 | Software Bill of Materials | Root (also archived in `docs/test-results/`) | — (tool-generated) |
+| Performance Baselines | 3 | Metrics for future comparison | `docs/test-results/[date]_performance-baseline.[ext]` | — |
+| `USER_GUIDE.md` | 3 | End-user documentation: how to use the application, FAQ, support contact | Root | — |
+| `SECURITY.md` | 4 | Vulnerability reporting — supported versions, reporting mechanism, response time, safe harbor (web/desktop) | Root | — |
+| `docs/INCIDENT_RESPONSE.md` | 4 | Severity classification, notification chains, rollback, containment | `docs/INCIDENT_RESPONSE.md` | `incident-response.tmpl` |
+| `RELEASE_NOTES.md` | 4 | User-facing: what the app does, known limitations, change history (append-only) | Root | `release-notes.tmpl` |
+| `HANDOFF.md` | 4 | Complete transfer document — dev setup, build process, tech debt, AI quick start | Root | `handoff.tmpl` |
+| Phase Gate Snapshots | 0-4 | Point-in-time document snapshots at each phase transition | `docs/snapshots/phase-N-to-M_YYYY-MM-DD/` | — (auto-created) |
+| Compliance Screening Matrix | 0 (org) | Regulatory applicability assessment | Embedded in Intake Section 8.4 | Part of `project-intake.md` |
+| Penetration Test Report | 3 (Standard+) | External security assessment | `docs/test-results/` | — (external) |
+| Handoff Test Results | 4 (org) | Backup maintainer validation results | `docs/test-results/` | — |
 
 ---
 

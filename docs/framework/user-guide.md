@@ -116,6 +116,25 @@ The framework has three tiers of control, plus an intermediate tier for CI-based
 | `SOIF_STRICT_CHANGELOG=true` | Changelog check blocks CI |
 | `SOIF_STRICT_SESSION=true` | Session freshness check blocks CI |
 
+### Process Enforcement (Tier 2)
+
+The framework mechanically enforces sequential process compliance through a state machine and commit gating system. Four processes are gated:
+
+1. **Build Loop** (Phase 2) — tests → verify failing → implement → security audit → documentation → record feature. Each step must be completed in order. Source commits are blocked until all steps pass.
+2. **UAT Session** (Phase 2) — 9-step testing flow from dispatching test agents through gate passage. Bug fix commits are blocked until the full session checklist is complete.
+3. **Phase 3 Validation** — all 6 validation types (integration, security, chaos, accessibility, performance, contract) must be completed and results archived.
+4. **Phase 4 Release** — rollback must be tested before go-live verification. All 5 release steps required.
+
+The agent calls `scripts/process-checklist.sh --complete-step PROCESS:STEP` to advance through each process. A PreToolUse hook on `git commit` and `gh pr create` blocks when required steps are incomplete.
+
+**What the Orchestrator sees:** When the agent attempts a commit with incomplete steps, Claude Code displays the block reason — for example: "Build Loop step 'security_audit' not completed. Run: scripts/process-checklist.sh --complete-step build_loop:security_audit". The agent must complete the missing step before the commit will be allowed.
+
+**Tool usage tracking:** During Phase 2, the framework tracks whether the agent consulted Context7 (library documentation) and Qdrant (persistent memory). Warnings appear at commit time if Context7 hasn't been used in 2+ commits, and at session end if Qdrant was never used despite source commits being made. These are warnings, not blocks.
+
+**Emergency escape:** If the enforcement system blocks a legitimate action due to a bug or edge case, the Orchestrator (not the agent) can run `scripts/process-checklist.sh --reset PROCESS` to clear the state for one process, or `--reset-all` to clear everything. Resets are logged.
+
+**Check current state:** Run `scripts/process-checklist.sh --status` to see where each process stands — which steps are completed and which remain.
+
 ### Time Commitment
 
 From the Builder's Guide:
@@ -247,8 +266,8 @@ The script prompts for 7 inputs:
 | `.github/workflows/ci.yml` | CI pipeline — language-specific (test, lint, SAST, audit) |
 | `.github/workflows/release.yml` | Release pipeline — platform-specific (build, sign, distribute) |
 | `.gitignore` | Language + platform appropriate ignores |
-| `.claude/framework/` | Claude Dev Framework (Git hook guardrails) |
-| `docs/framework/` | Builder's Guide, Governance Framework, Executive Review, CLI Setup Addendum |
+| `.claude/framework/` | Development Guardrails for Claude Code (Git hook guardrails) |
+| `docs/reference/` | Builder's Guide, Governance Framework, Executive Review, CLI Setup Addendum |
 | `docs/platform-modules/` | Platform-specific guidance for your selected platform |
 | `docs/test-results/` | Empty — populated during Phase 3 |
 
@@ -268,9 +287,9 @@ The init script also generates **two pipelines**: a CI pipeline (`ci.yml`) selec
 | `.gitignore` | init.sh | Nothing | Add entries as needed |
 | `.claude/framework/` | init.sh (cloned from GitHub) | Nothing | Git hooks are auto-installed |
 | `.claude/phase-state.json` | init.sh | Nothing — updated by scripts | Tracks current phase |
-| `docs/framework/` | init.sh (copied from solo-orchestrator) | Nothing | Reference documents |
+| `docs/reference/` | init.sh (copied from solo-orchestrator) | Nothing | Reference documents |
 | `docs/platform-modules/` | init.sh (copied) | Nothing | Platform-specific guidance |
-| `docs/framework/security-scan-guide.md` | init.sh (copied) | Nothing | Plain-language guide for common scan findings |
+| `docs/reference/security-scan-guide.md` | init.sh (copied) | Nothing | Plain-language guide for common scan findings |
 | `scripts/intake-wizard.sh` | init.sh (copied) | Run to fill out the Intake | Guided script or AI-assisted conversation |
 | `scripts/resume.sh` | init.sh (copied) | Run at session start | Generates resume prompt from project state |
 | `templates/intake-suggestions/` | init.sh (copied) | Nothing | Context-aware suggestions for the wizard |
@@ -307,7 +326,7 @@ After init, you can configure additional tooling. These are not required for you
 | **Context7 MCP** | Gives the AI up-to-date library documentation instead of relying on training data | **Before Phase 1** — helps the AI make accurate architecture and implementation decisions | One command, no prerequisites |
 | **Superpowers** | Agentic skills plugin — strict TDD, subagent-driven development, systematic debugging, git worktrees | **Before Phase 2** — accelerates the Build Loop significantly | One command, no prerequisites |
 | **Qdrant MCP** | Persistent semantic memory across sessions — the AI remembers project decisions and patterns | **Phase 1** — offered automatically when Docker is available. Each project gets an isolated collection. | Requires Docker (Colima or Docker Desktop) |
-| **Claude Dev Framework** | Git hook-based guardrails for coding standards, security scanning, documentation | Auto-installed by init.sh | Already done |
+| **Development Guardrails for Claude Code** | Git hook-based guardrails for coding standards, security scanning, documentation | Auto-installed by init.sh | Already done |
 
 See the [CLI Setup Addendum](cli-setup-addendum.md) for detailed instructions, or use the [Quick Setup](cli-setup-addendum.md#quick-setup--all-recommended-enhancements) to configure all three at once.
 
@@ -446,7 +465,7 @@ Section 12 of the Intake contains a ready-to-use initialization prompt. Copy and
 - Hard constraints are absolute; preferences can be challenged with justification
 - Blank fields must be flagged immediately
 
-You also provide the Builder's Guide (`docs/framework/builders-guide.md`) and the relevant Platform Module.
+You also provide the Builder's Guide (`docs/reference/builders-guide.md`) and the relevant Platform Module.
 
 ### The Agent's Operating Model
 
@@ -462,11 +481,38 @@ The agent works autonomously between decision gates. It reads your Intake, follo
 
 **When the agent proposes something outside the Intake:** Push back. The Intake is the governing constraint. If the agent suggests a feature not in the MVP Cutline, a technology you excluded, or an architecture that contradicts your hard constraints, tell it to stop and reference the specific Intake section. The agent should not override your decisions without your explicit consent.
 
+### Session-Start Version Check
+
+Every session begins with a tooling health check. The agent runs `scripts/check-versions.sh`, which reads the tool matrix and checks every installed tool against its minimum version and the latest available version. This catches drift that accumulates between sessions — especially if weeks or months pass between work.
+
+The version checker handles different tool types automatically via data-driven `update_check` strategies in the tool matrix:
+
+| Strategy | Tools | What It Does |
+|---|---|---|
+| Standard version comparison | Git, Node, Semgrep, gitleaks, Snyk, Claude Code, jq, Colima | Compares installed version to minimum and latest available |
+| `git_repo` | Development Guardrails for Claude Code | Fetches the remote and reports how many commits you are behind |
+| `ephemeral` | Context7 MCP, Qdrant MCP | Reports "auto-updates" — these tools run via `npx`/`uvx` which always fetches the latest |
+| `claude_plugin` | Superpowers | Reports "managed by Claude Code" — Claude handles plugin updates internally |
+| `docker_image` | (Future: Qdrant container) | Compares running container image digest to the latest available |
+
+If tools are out of date, the script offers interactive update options:
+- **Update all** — runs update commands for every outdated tool
+- **Select which to update** — choose specific tools by number
+- **Skip** — prints the manual update commands for later
+
+**Critical rule:** The agent will not proceed with Phase 2+ work if any required security tool (Semgrep, gitleaks, Snyk) is below its minimum version. This prevents building against outdated security scanning.
+
+#### Extending the Version Check
+
+The version check is data-driven through the tool matrix (`templates/tool-matrix/common.json` and platform-specific files). If you swap a tool (e.g., replace Qdrant with Supabase), update the tool matrix entry — `check-versions.sh` reads the `update_check` method and handles it automatically. No script changes required.
+
+To add a new `update_check` type, add a handler case in the `check_for_update()` function in `scripts/check-versions.sh`.
+
 ### Session Management
 
 AI coding agents have context limits. For long-running projects:
 
-- **Start each session** by pointing the agent to `CLAUDE.md` (read automatically), then provide the `PROJECT_BIBLE.md` and relevant source files for context.
+- **Start each session** by pointing the agent to `CLAUDE.md` (read automatically), then provide the `PROJECT_BIBLE.md` and relevant source files for context. The agent runs `scripts/check-versions.sh` automatically and reports any outdated tools before proceeding.
 - **End each session** by confirming what was completed and what remains. The agent should update the Bible and CHANGELOG.md before you close.
 - **Between sessions**, the agent does not retain state unless you have configured Qdrant MCP for persistent semantic memory. Without it, every session starts fresh with the Bible as context.
 - **If a session goes poorly** (low-quality output, hallucinations, context drift), end it and start fresh. Do not try to steer a confused agent back on track — it is faster to restart.
@@ -1032,6 +1078,7 @@ After launch, you are the operations team. Schedule these activities.
 - Review error dashboard — are there recurring errors?
 - Check monitoring alerts — any unresolved notifications?
 - Quick application health check — does the core flow still work?
+- When starting a development session: the agent runs `scripts/check-versions.sh` automatically — review the results and update any flagged tools before proceeding
 - When starting a development session: run `bash scripts/resume.sh` to generate a context-aware resume prompt from your project's current state
 
 ### Monthly (1-2 hours)
@@ -1056,6 +1103,7 @@ After launch, you are the operations team. Schedule these activities.
 - Re-run Phase 3 security and performance audit
 - Verify AI provider terms have not changed in ways that affect compliance
 - Review platform requirements (SDK versions, OS support, app store policies)
+- Update the solo-orchestrator clone (`cd ~/solo-orchestrator && git pull`) and run `bash scripts/check-updates.sh` from your project to see if framework documents have changed upstream
 - **(Organizational)** Insurance/AI terms verification with broker and legal
 
 Expect 2-4 hours/week for the first 3 months post-launch. It stabilizes to 1-2 hours/week (50-80 hours/year per application). Maintenance is bursty — a security advisory can consume a full day, and then nothing happens for two weeks.

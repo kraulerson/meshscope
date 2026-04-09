@@ -13,6 +13,7 @@ import numpy.typing as npt
 from vtkmodules.vtkCommonDataModel import vtkPolyData
 from vtkmodules.vtkRenderingCore import (
     vtkActor,
+    vtkCellPicker,
     vtkLight,
     vtkPolyDataMapper,
     vtkRenderer,
@@ -20,10 +21,12 @@ from vtkmodules.vtkRenderingCore import (
 
 from meshscope.core.mesh_data import BoundingBox
 from meshscope.vtk_adapter.highlight_manager import HighlightManager
+from meshscope.vtk_adapter.measurement_manager import MeasurementManager
 from meshscope.vtk_adapter.print_bed import PrintBedManager, get_overflow_text
 
 if TYPE_CHECKING:
     from meshscope.core.mesh_analysis import MeshAnalysis
+    from meshscope.core.mesh_data import Measurement
 
 logger = logging.getLogger("meshscope.vtk_adapter.scene_manager")
 
@@ -56,6 +59,10 @@ class SceneManager:
         self._highlight_actors: list[vtkActor] = []
         self._highlight_manager = HighlightManager()
         self._highlights_visible = False
+        self._measurement_actors: list[vtkActor] = []
+        self._measurement_manager = MeasurementManager()
+        self._measurements_visible = False
+        self._pending_point_actor: vtkActor | None = None
 
         # Set background color
         self._renderer.SetBackground(*BACKGROUND_COLOR)
@@ -113,6 +120,8 @@ class SceneManager:
         self._smooth_shading_enabled = False
         self.hide_print_bed()
         self.hide_highlights()
+        self.hide_measurements()
+        self.hide_pending_point()
 
     def show_highlights(
         self,
@@ -138,6 +147,69 @@ class SceneManager:
     @property
     def highlights_visible(self) -> bool:
         return self._highlights_visible
+
+    # --- Measurements ---
+
+    def show_measurements(self, measurements: list[Measurement]) -> None:
+        """Create and add measurement actors for all active measurements."""
+        self.hide_measurements()
+        for m in measurements:
+            actors = self._measurement_manager.create_measurement_actors(
+                m.point_a, m.point_b, m.index
+            )
+            self._measurement_actors.extend(actors)
+            for actor in actors:
+                self._renderer.AddActor(actor)
+        self._measurements_visible = len(measurements) > 0
+
+    def hide_measurements(self) -> None:
+        """Remove all measurement actors from the scene."""
+        for actor in self._measurement_actors:
+            self._renderer.RemoveActor(actor)
+        self._measurement_actors.clear()
+        self._measurements_visible = False
+
+    @property
+    def measurements_visible(self) -> bool:
+        return self._measurements_visible
+
+    def show_pending_point(self, point: tuple[float, float, float], index: int) -> None:
+        """Show a single pending endpoint marker (point A before point B is placed)."""
+        self.hide_pending_point()
+        self._pending_point_actor = (
+            self._measurement_manager.create_pending_point_actor(point, index)
+        )
+        self._renderer.AddActor(self._pending_point_actor)
+
+    def hide_pending_point(self) -> None:
+        """Remove the pending point marker from the scene."""
+        if self._pending_point_actor is not None:
+            self._renderer.RemoveActor(self._pending_point_actor)
+            self._pending_point_actor = None
+
+    def pick_surface_point(
+        self, display_x: int, display_y: int
+    ) -> tuple[float, float, float] | None:
+        """Cast a ray from screen coordinates into the scene.
+
+        Returns the 3D intersection point on the mesh surface, or None if no hit.
+        Uses vtkCellPicker with the mesh actor.
+        """
+        if self._mesh_actor is None:
+            return None
+
+        picker = vtkCellPicker()
+        picker.SetTolerance(0.005)
+        picker.AddPickList(self._mesh_actor)
+        picker.PickFromListOn()
+
+        result = picker.Pick(float(display_x), float(display_y), 0.0, self._renderer)
+
+        if result == 0 or picker.GetCellId() < 0:
+            return None
+
+        pos = picker.GetPickPosition()
+        return (float(pos[0]), float(pos[1]), float(pos[2]))
 
     def show_print_bed(self, x: int, y: int, z: int, bbox: BoundingBox) -> str | None:
         """Show print bed volume overlay. Returns overflow text or None.

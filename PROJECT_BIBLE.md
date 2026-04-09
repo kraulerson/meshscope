@@ -7,6 +7,7 @@
 ---
 
 ## 1. Product Manifesto
+<!-- Last Updated: 2026-04-05 -->
 
 See `PRODUCT_MANIFESTO.md` (Phase 0, Step 0.4). The Manifesto defines:
 - Product intent and target users
@@ -20,6 +21,7 @@ See `PRODUCT_MANIFESTO.md` (Phase 0, Step 0.4). The Manifesto defines:
 ---
 
 ## 2. Revenue Model & Cost Constraints
+<!-- Last Updated: 2026-04-05 -->
 
 - **Price:** Free, open source
 - **Budget:** $0 — no hosting, no API calls, no paid dependencies
@@ -31,6 +33,7 @@ No revenue model. No break-even calculation. This is a showcase project.
 ---
 
 ## 3. Architecture Decision Record
+<!-- Last Updated: 2026-04-08 -->
 
 ### Selected Architecture: trimesh + VTK (Option B)
 
@@ -67,6 +70,8 @@ VTK is the industry standard for scientific 3D visualization. It powers ParaView
 - Post-MVP features (wall thickness heatmaps, mesh decimation viz, multi-model) map directly to existing VTK capabilities
 - Qt integration via QVTKRenderWindowInteractor is a mature, documented pattern
 
+**Full ADRs:** `docs/ADR documentation/0001-architecture-selection.md`, `docs/ADR documentation/0002-python-version-selection.md`, `docs/ADR documentation/0003-packaging-with-nuitka.md`, `docs/ADR documentation/0004-stl-as-primary-format.md`
+
 ### Packaging Risk (Nuitka + VTK)
 
 VTK wheels contain compiled C++ shared libraries. Nuitka must bundle these correctly. **This must be validated as the first Phase 2 task, before any feature code is written.** Use `--include-package=vtkmodules` and `--include-package-data=vtkmodules`. If Nuitka cannot package VTK on any target platform, escalate to Orchestrator with evidence.
@@ -74,6 +79,7 @@ VTK wheels contain compiled C++ shared libraries. Nuitka must bundle these corre
 ---
 
 ## 4. Threat Model & Risk/Mitigation Matrix
+<!-- Last Updated: 2026-04-05 -->
 
 ### Threat Summary
 
@@ -111,6 +117,7 @@ Attack surface is minimal: no network, no auth, no multi-user, no database, no I
 ---
 
 ## 5. Data Model
+<!-- Last Updated: 2026-04-07 -->
 
 ### In-Memory (Session Only)
 
@@ -134,18 +141,21 @@ Schema-versioned (version field enables forward migration). Atomic writes. Schem
 ---
 
 ## 6. Data Migration Plan
+<!-- Last Updated: 2026-04-05 -->
 
 N/A — no existing system.
 
 ---
 
 ## 7. Auth & Identity Strategy
+<!-- Last Updated: 2026-04-05 -->
 
 N/A — no authentication. Fully offline. Single user.
 
 ---
 
 ## 8. Observability & Logging Strategy
+<!-- Last Updated: 2026-04-05 -->
 
 | Component | Implementation |
 |---|---|
@@ -161,6 +171,7 @@ N/A — no authentication. Fully offline. Single user.
 ---
 
 ## 9. UI Component Specifications
+<!-- Last Updated: 2026-04-08 -->
 
 ### Layout
 
@@ -184,6 +195,7 @@ Every interactive component has 4 defined states: Empty, Loading, Error, Success
 ---
 
 ## 10. Coding Standards
+<!-- Last Updated: 2026-04-05 -->
 
 ### Python
 
@@ -207,6 +219,7 @@ Every interactive component has 4 defined states: Empty, Loading, Error, Success
 ---
 
 ## 11. Build & Distribution Strategy
+<!-- Last Updated: 2026-04-08 -->
 
 ### Build Pipeline
 
@@ -271,6 +284,7 @@ Add VTK `--include-module` entries as new VTK modules are used during feature de
 ---
 
 ## 12. Test Strategy
+<!-- Last Updated: 2026-04-08 -->
 
 ### Test Types
 
@@ -337,6 +351,7 @@ Every 2 features: stop construction, run UAT session per CLAUDE.md Testing & Bug
 ---
 
 ## 13. Orchestrator Profile Summary
+<!-- Last Updated: 2026-04-05 -->
 
 | Domain | Self-Assessment | Automated Tooling |
 |---|---|---|
@@ -354,6 +369,7 @@ Every 2 features: stop construction, run UAT session per CLAUDE.md Testing & Bug
 ---
 
 ## 14. Accessibility Requirements
+<!-- Last Updated: 2026-04-05 -->
 
 Source: Intake Section 9. **Hard constraint — not negotiable.**
 
@@ -370,6 +386,7 @@ Source: Intake Section 9. **Hard constraint — not negotiable.**
 ---
 
 ## 15. Platform-Specific Requirements
+<!-- Last Updated: 2026-04-05 -->
 
 ### macOS (Primary Development)
 - Minimum: macOS 13 (Ventura)
@@ -394,6 +411,7 @@ Source: Intake Section 9. **Hard constraint — not negotiable.**
 ---
 
 ## 16. Context Management Plan
+<!-- Last Updated: 2026-04-08 -->
 
 meshscope is a small project (<30 files estimated for MVP). Strategy: **Full Bible per session.**
 
@@ -420,10 +438,14 @@ If the project grows beyond 30 files post-MVP, upgrade to module-level summaries
 
 ## UAT Plan
 
-- **Testing interval:** Every 2 features
-- **Human tester:** 1 (Karl)
-- **Bug tracker:** GitHub Issues
-- **Process:** Per CLAUDE.md Testing & Bug Workflow (gate check, parallel test agents, consolidate, triage, fix, re-test, reset counter)
+| Field | Value |
+|---|---|
+| Testing interval | Every 2 features |
+| Human tester count | 1 (Karl) |
+| Bug tracking tool | `BUGS.md` + GitHub Issues |
+| UAT format | Interactive HTML (`templates/uat/templates/test-session-template.html`) |
+
+**Process:** Per CLAUDE.md Testing & Bug Workflow (gate check, parallel test agents, consolidate, triage, fix, re-test, reset counter)
 
 ---
 
@@ -432,3 +454,4 @@ If the project grows beyond 30 files post-MVP, upgrade to module-level summaries
 | Version | Date | Changes |
 |---|---|---|
 | 1.0 | 2026-04-05 | Initial release from Phase 1 synthesis. |
+| 1.1 | 2026-04-08 | Added freshness markers, ADR cross-references, UAT Plan table format. |

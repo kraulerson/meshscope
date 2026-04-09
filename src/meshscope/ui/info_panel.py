@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 
 if TYPE_CHECKING:
     from meshscope.core.mesh_analysis import MeshAnalysis
+    from meshscope.core.mesh_data import Measurement
     from meshscope.core.mesh_document import MeshDocument
 
 # Unicode constants
@@ -238,6 +239,12 @@ class InfoPanel(QDockWidget):
         self._analysis_section.setVisible(False)
         self._layout.addWidget(self._analysis_section)
 
+        # --- Measurements section ---
+        self._measurements_section = CollapsibleSection("Measurements")
+        self._measurement_labels: list[QLabel] = []
+        self._measurements_section.setVisible(False)
+        self._layout.addWidget(self._measurements_section)
+
         self._layout.addStretch()
         self._scroll.setWidget(self._content)
 
@@ -354,6 +361,7 @@ class InfoPanel(QDockWidget):
         self._warning_banner.setVisible(False)
         self._inline_unit_warning.setVisible(False)
         self.clear_analysis()
+        self.clear_measurements()
         self._is_empty = True
 
     # --- Test accessor methods ---
@@ -504,3 +512,55 @@ class InfoPanel(QDockWidget):
     def has_highlight_checkbox(self) -> bool:
         """Return True if the highlight checkbox exists (for testing)."""
         return self._highlight_checkbox is not None
+
+    # --- Measurement methods ---
+
+    def show_measurements(self, measurements: list[Measurement]) -> None:
+        """Populate the Measurements section and show it."""
+        for label in self._measurement_labels:
+            self._measurements_section.content_layout.removeWidget(label)
+            label.deleteLater()
+        self._measurement_labels.clear()
+
+        if not measurements:
+            self._measurements_section.setVisible(False)
+            return
+
+        color_hex: dict[int, str] = {1: "#f0c040", 2: "#40b0f0", 3: "#60d060"}
+
+        for m in measurements:
+            hex_color = color_hex.get(m.index, "#ffffff")
+            header = (
+                f'<span style="color: {hex_color};">\u25a0</span> '
+                f"#{m.index}: {m.distance_mm:.1f} mm"
+            )
+            coords = (
+                f"A: ({m.point_a[0]:.1f}, {m.point_a[1]:.1f}, {m.point_a[2]:.1f})  "
+                f"B: ({m.point_b[0]:.1f}, {m.point_b[1]:.1f}, {m.point_b[2]:.1f})"
+            )
+            label = QLabel(f"{header}<br/><small>{coords}</small>")
+            label.setTextFormat(Qt.TextFormat.RichText)
+            label.setWordWrap(True)
+            label.setAccessibleName(
+                f"Measurement {m.index}: {m.distance_mm:.1f} millimeters"
+            )
+            self._measurements_section.content_layout.addWidget(label)
+            self._measurement_labels.append(label)
+
+        self._measurements_section.setVisible(True)
+
+    def clear_measurements(self) -> None:
+        """Hide the Measurements section and remove all entries."""
+        for label in self._measurement_labels:
+            self._measurements_section.content_layout.removeWidget(label)
+            label.deleteLater()
+        self._measurement_labels.clear()
+        self._measurements_section.setVisible(False)
+
+    def measurements_section_visible(self) -> bool:
+        """Return True if the Measurements section is not hidden (for testing)."""
+        return not self._measurements_section.isHidden()
+
+    def measurements_section_text(self) -> str:
+        """Return combined text of all measurement labels (for testing)."""
+        return "\n".join(label.text() for label in self._measurement_labels)
