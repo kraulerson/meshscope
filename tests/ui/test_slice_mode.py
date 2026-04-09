@@ -172,3 +172,22 @@ class TestMainWindowSliceAction:
         window._set_state_success("test.stl", 1000)
         window._set_state_error("File corrupt")
         assert not window.slice_action.isEnabled()
+
+    def test_slice_activates_with_loaded_mesh(self, window: MainWindow) -> None:
+        """Regression: slice must activate when interactor is passed directly."""
+        from pathlib import Path
+
+        fixtures = Path(__file__).parent.parent / "fixtures" / "valid"
+        window._load_file(fixtures / "cube.stl")
+        window.slice_action.setChecked(True)
+        assert window._viewport.scene_manager.slice_active is True
+
+    def test_slice_deactivates_on_uncheck(self, window: MainWindow) -> None:
+        """Regression: slice must deactivate cleanly."""
+        from pathlib import Path
+
+        fixtures = Path(__file__).parent.parent / "fixtures" / "valid"
+        window._load_file(fixtures / "cube.stl")
+        window.slice_action.setChecked(True)
+        window.slice_action.setChecked(False)
+        assert window._viewport.scene_manager.slice_active is False

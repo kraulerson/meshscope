@@ -3,7 +3,8 @@
 from pathlib import Path
 
 import pytest
-from PySide6.QtGui import QKeySequence
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QKeySequence, QMouseEvent
 from PySide6.QtWidgets import QApplication
 
 from meshscope.core.mesh_data import Measurement
@@ -231,6 +232,40 @@ class TestMainWindowMeasureMode:
         non_mouse_event = QEvent(QEvent.Type.FocusIn)
         result = window.eventFilter(window._viewport.vtk_interactor, non_mouse_event)
         assert result is False
+
+    def test_event_filter_consumes_left_press(self, window: MainWindow) -> None:
+        """Regression: left-click press must be consumed to prevent VTK orbit."""
+        from PySide6.QtCore import QPointF
+
+        fixtures = Path(__file__).parent.parent / "fixtures" / "valid"
+        window._load_file(fixtures / "cube.stl")
+        window.measure_action.setChecked(True)
+        press = QMouseEvent(
+            QMouseEvent.Type.MouseButtonPress,
+            QPointF(100, 100),
+            Qt.MouseButton.LeftButton,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        result = window.eventFilter(window._viewport.vtk_interactor, press)
+        assert result is True  # consumed, not forwarded to VTK
+
+    def test_event_filter_passes_right_press(self, window: MainWindow) -> None:
+        """Regression: right-click must pass through for VTK zoom."""
+        from PySide6.QtCore import QPointF
+
+        fixtures = Path(__file__).parent.parent / "fixtures" / "valid"
+        window._load_file(fixtures / "cube.stl")
+        window.measure_action.setChecked(True)
+        press = QMouseEvent(
+            QMouseEvent.Type.MouseButtonPress,
+            QPointF(100, 100),
+            Qt.MouseButton.RightButton,
+            Qt.MouseButton.RightButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+        result = window.eventFilter(window._viewport.vtk_interactor, press)
+        assert result is False  # passed through to VTK
 
 
 class TestMainWindowClearMeasurements:
