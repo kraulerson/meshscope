@@ -32,10 +32,11 @@ QPushButton.preset-btn {
     color: #ccc;
     border: 1px solid #555;
     border-radius: 3px;
-    padding: 4px 10px;
-    font-size: 12px;
+    padding: 6px 12px;
+    font-size: 13px;
     font-weight: bold;
-    min-width: 24px;
+    min-width: 28px;
+    min-height: 24px;
 }
 QPushButton.preset-btn:hover {
     background-color: #444;
@@ -51,8 +52,9 @@ QPushButton#btn_reset {
     color: #ccc;
     border: 1px solid #555;
     border-radius: 3px;
-    padding: 4px 8px;
-    font-size: 11px;
+    padding: 6px 8px;
+    font-size: 12px;
+    min-height: 24px;
 }
 QPushButton#btn_reset:hover {
     background-color: #444;
@@ -78,11 +80,12 @@ class SliceOverlayWidget(QWidget):
         self.setObjectName("SliceOverlayWidget")
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setStyleSheet(_OVERLAY_STYLE)
-        self.setFixedWidth(110)
+        self.setFixedWidth(130)
+        self.setMinimumHeight(100)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(8, 6, 8, 6)
-        layout.setSpacing(6)
+        layout.setContentsMargins(10, 8, 10, 8)
+        layout.setSpacing(8)
 
         # Title
         title = QLabel("Slice Plane")
