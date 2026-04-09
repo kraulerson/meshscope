@@ -157,3 +157,106 @@ class TestSlicePlaneManagerActivation:
         mgr.activate(polydata, bounds)
         count_after_second = renderer.GetActors().GetNumberOfItems()
         assert count_after_second == count_after_first
+
+
+class TestSlicePlaneManagerPresets:
+    def test_set_preset_x(self) -> None:
+        renderer = vtkRenderer()
+        interactor = MagicMock()
+        mgr = SlicePlaneManager(renderer, interactor)
+        polydata = _make_cube_polydata()
+        bounds = polydata.GetBounds()
+        mgr.activate(polydata, bounds)
+
+        mgr.set_preset("x", bounds)
+        assert mgr.current_preset == "x"
+
+    def test_set_preset_y(self) -> None:
+        renderer = vtkRenderer()
+        interactor = MagicMock()
+        mgr = SlicePlaneManager(renderer, interactor)
+        polydata = _make_cube_polydata()
+        bounds = polydata.GetBounds()
+        mgr.activate(polydata, bounds)
+
+        mgr.set_preset("y", bounds)
+        assert mgr.current_preset == "y"
+
+    def test_set_preset_z(self) -> None:
+        renderer = vtkRenderer()
+        interactor = MagicMock()
+        mgr = SlicePlaneManager(renderer, interactor)
+        polydata = _make_cube_polydata()
+        bounds = polydata.GetBounds()
+        mgr.activate(polydata, bounds)
+
+        mgr.set_preset("z", bounds)
+        assert mgr.current_preset == "z"
+
+    def test_preset_when_inactive_is_noop(self) -> None:
+        renderer = vtkRenderer()
+        interactor = MagicMock()
+        mgr = SlicePlaneManager(renderer, interactor)
+        mgr.set_preset("x", (-5, 5, -5, 5, -5, 5))  # must not raise
+        assert mgr.is_active is False
+
+    def test_preset_invalid_axis_ignored(self) -> None:
+        renderer = vtkRenderer()
+        interactor = MagicMock()
+        mgr = SlicePlaneManager(renderer, interactor)
+        polydata = _make_cube_polydata()
+        bounds = polydata.GetBounds()
+        mgr.activate(polydata, bounds)
+
+        mgr.set_preset("q", bounds)  # invalid axis
+        # Should still be at the default Z preset
+        assert mgr.current_preset == "z"
+
+
+class TestSlicePlaneManagerReset:
+    def test_reset_keeps_orientation(self) -> None:
+        renderer = vtkRenderer()
+        interactor = MagicMock()
+        mgr = SlicePlaneManager(renderer, interactor)
+        polydata = _make_cube_polydata()
+        bounds = polydata.GetBounds()
+        mgr.activate(polydata, bounds)
+
+        mgr.set_preset("x", bounds)
+        assert mgr.current_preset == "x"
+
+        mgr.reset_to_center(bounds)
+        # Preset should still be "x" since reset keeps orientation
+        # (current_preset is only cleared on manual drag)
+        assert mgr.current_preset == "x"
+
+    def test_reset_when_inactive_is_noop(self) -> None:
+        renderer = vtkRenderer()
+        interactor = MagicMock()
+        mgr = SlicePlaneManager(renderer, interactor)
+        mgr.reset_to_center((-5, 5, -5, 5, -5, 5))  # must not raise
+        assert mgr.is_active is False
+
+
+class TestSlicePlaneManagerMeshUpdate:
+    def test_update_mesh_recalculates_clip(self) -> None:
+        renderer = vtkRenderer()
+        interactor = MagicMock()
+        mgr = SlicePlaneManager(renderer, interactor)
+        polydata = _make_cube_polydata()
+        bounds = polydata.GetBounds()
+        mgr.activate(polydata, bounds)
+
+        mgr.update_mesh(polydata, bounds)
+        actors_after = renderer.GetActors().GetNumberOfItems()
+        # Should still have actors (clip recalculated, not removed)
+        assert actors_after >= 1
+
+    def test_update_mesh_when_inactive_is_noop(self) -> None:
+        renderer = vtkRenderer()
+        interactor = MagicMock()
+        mgr = SlicePlaneManager(renderer, interactor)
+        polydata = _make_cube_polydata()
+        bounds = polydata.GetBounds()
+        mgr.update_mesh(polydata, bounds)  # must not raise
+        assert mgr.is_active is False
