@@ -75,6 +75,7 @@ jobs:
             --nofollow-import-to=vtkmodules.tk \
             --nofollow-import-to=matplotlib \
             --nofollow-import-to=PIL \
+            --include-package=meshscope \
             --include-package=trimesh \
             --include-package=numpy \
             --output-dir=dist/ \
