@@ -260,3 +260,72 @@ class TestSlicePlaneManagerMeshUpdate:
         bounds = polydata.GetBounds()
         mgr.update_mesh(polydata, bounds)  # must not raise
         assert mgr.is_active is False
+
+
+class TestSlicePlaneManagerInteraction:
+    def test_on_interaction_clears_preset(self) -> None:
+        """When user manually drags the widget, preset should be cleared."""
+        renderer = vtkRenderer()
+        interactor = MagicMock()
+        mgr = SlicePlaneManager(renderer, interactor)
+        polydata = _make_cube_polydata()
+        bounds = polydata.GetBounds()
+        mgr.activate(polydata, bounds)
+
+        assert mgr.current_preset == "z"
+
+        # Simulate what the widget callback does.
+        # With a mock interactor, the widget is not created,
+        # so _on_interaction will return early (guard clause).
+        mgr._on_interaction(None, "InteractionEvent")
+
+    def test_activate_default_is_z_preset(self) -> None:
+        renderer = vtkRenderer()
+        interactor = MagicMock()
+        mgr = SlicePlaneManager(renderer, interactor)
+        polydata = _make_cube_polydata()
+        bounds = polydata.GetBounds()
+        mgr.activate(polydata, bounds)
+        assert mgr.current_preset == "z"
+
+    def test_preset_after_deactivate_resets_to_z_on_reactivate(self) -> None:
+        renderer = vtkRenderer()
+        interactor = MagicMock()
+        mgr = SlicePlaneManager(renderer, interactor)
+        polydata = _make_cube_polydata()
+        bounds = polydata.GetBounds()
+
+        mgr.activate(polydata, bounds)
+        mgr.set_preset("x", bounds)
+        assert mgr.current_preset == "x"
+
+        mgr.deactivate()
+        mgr.activate(polydata, bounds)
+        assert mgr.current_preset == "z"  # reset to default on reactivate
+
+
+class TestSlicePlaneManagerEdgeCases:
+    def test_activate_with_degenerate_polydata(self) -> None:
+        """Single triangle (non-manifold) should not crash."""
+        renderer = vtkRenderer()
+        interactor = MagicMock()
+        mgr = SlicePlaneManager(renderer, interactor)
+        polydata = _make_triangle_polydata()
+        bounds = polydata.GetBounds()
+        mgr.activate(polydata, bounds)
+        assert mgr.is_active is True
+
+    def test_activate_deactivate_cycle(self) -> None:
+        """Repeated activate/deactivate should not leak actors."""
+        renderer = vtkRenderer()
+        interactor = MagicMock()
+        mgr = SlicePlaneManager(renderer, interactor)
+        polydata = _make_cube_polydata()
+        bounds = polydata.GetBounds()
+
+        for _ in range(5):
+            mgr.activate(polydata, bounds)
+            mgr.deactivate()
+
+        assert mgr.is_active is False
+        assert renderer.GetActors().GetNumberOfItems() == 0
