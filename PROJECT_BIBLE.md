@@ -253,6 +253,7 @@ nuitka --standalone
        --include-module=vtkmodules.vtkIOPLY
        --include-module=vtkmodules.vtkIOLegacy
        --include-module=vtkmodules.qt.QVTKRenderWindowInteractor
+       --include-module=vtkmodules.vtkInteractionWidgets
        --nofollow-import-to=vtkmodules.test
        --nofollow-import-to=vtkmodules.web
        --nofollow-import-to=vtkmodules.wx
