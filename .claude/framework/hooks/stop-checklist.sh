@@ -1,20 +1,36 @@
 #!/usr/bin/env bash
 # stop-checklist.sh — Stop hook. Blocks if work is incomplete.
+#
+# Pending-approval sentinel: if ${CLAUDE_PROJECT_DIR:-.}/.claude/pending-approval.json
+# exists, the agent is holding on a user decision — exit 0 silently (no block
+# JSON, no advisory). Agent deletes the file when the user picks.
+# Staleness (orphaned file after a crash) is not handled here; `rm` manually.
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SCRIPT_DIR/_helpers.sh" 2>/dev/null || exit 0
 
 INPUT=$(cat)
-STOP_REASON=$(echo "$INPUT" | jq -r '.stop_reason // empty' 2>/dev/null || echo "")
-[ "$STOP_REASON" = "user" ] || [ "$STOP_REASON" = "tool_error" ] && exit 0
+# stop_hook_active=true means Claude is already continuing because this hook
+# blocked a previous stop this turn — exit 0 to prevent an infinite block loop.
+# (Real Stop input carries no reason/kind field; this flag is the only loop signal.)
+STOP_HOOK_ACTIVE=$(echo "$INPUT" | jq -r '.stop_hook_active // false' 2>/dev/null || echo "false")
+[[ "$STOP_HOOK_ACTIVE" = "true" ]] && exit 0
 
-ERRORS=""
+# Pending-approval sentinel: existence alone means "in flight" — malformed/empty content still counts, per spec.
+PENDING_APPROVAL="${CLAUDE_PROJECT_DIR:-.}/.claude/pending-approval.json"
+[ -f "$PENDING_APPROVAL" ] && exit 0
+
+HASH=$(get_project_hash)
 CHANGELOG=$(get_branch_config_value '.changelogFile')
 CTX_HISTORY=$(get_branch_config_value '.contextHistoryFile')
+SESSION_START=$(cat "/tmp/.claude_session_start_${HASH}" 2>/dev/null || echo "")
 
-DIRTY=$(git diff --name-only 2>/dev/null || true)
 STAGED=$(git diff --cached --name-only 2>/dev/null || true)
-ALL=$(printf "%s\n%s" "$DIRTY" "$STAGED" | sort -u | grep -v '^$' || true)
+# git status --porcelain covers modified + staged + untracked (??). Strip the
+# 3-char status prefix, rename arrows, and quoting around paths with spaces.
+ALL=$(git status --porcelain 2>/dev/null \
+  | sed -e 's/^...//' -e 's/.* -> //' -e 's/^"//' -e 's/"$//' \
+  | sort -u | grep -v '^$' || true)
 
 HAS_SOURCE=false
 if [ -n "$ALL" ]; then
@@ -23,59 +39,76 @@ if [ -n "$ALL" ]; then
   done
 fi
 
-if [ "$HAS_SOURCE" = true ]; then
-  [ -n "$CHANGELOG" ] && ! echo "$ALL" | grep -q "$CHANGELOG" && ERRORS="${ERRORS}- Source files modified but $CHANGELOG not updated.\n"
-  ERRORS="${ERRORS}- Uncommitted source changes. Commit before finishing.\n"
-fi
+# Exposed as a function so session-scope dedup can hash the final ERRORS string without duplicating the accumulation logic.
+compute_errors() {
+  local errors=""
 
-# Check ALL session commits for untested bug fixes (not just the last one)
-HASH=$(get_project_hash)
-SESSION_START=$(cat "/tmp/.claude_session_start_${HASH}" 2>/dev/null || echo "")
-if [ "$HAS_SOURCE" = false ] && [ -z "$STAGED" ] && [ -n "$SESSION_START" ]; then
-  UNTESTED_FIXES=""
-  # Get all commits with files in one git call
-  COMMIT_LOG=$(git log --format="COMMIT %H %s" --name-only "${SESSION_START}..HEAD" 2>/dev/null || true)
-  CURRENT_SHA="" CURRENT_MSG="" CURRENT_HAS_TEST=false
-  while IFS= read -r line; do
-    if [[ "$line" == COMMIT\ * ]]; then
-      # Process previous commit (skip merge commits — they have no file list
-      # and their messages often contain branch names like "fix/..." which
-      # false-positive the fix detection regex)
-      if [ -n "$CURRENT_SHA" ] && ! echo "$CURRENT_MSG" | grep -qiE '^Merge ' && echo "$CURRENT_MSG" | grep -qiE '^(fix|bugfix|bug|patch|hotfix|repair|resolve)(\(|:|!|\b)'; then
-        [ "$CURRENT_HAS_TEST" = false ] && UNTESTED_FIXES="${UNTESTED_FIXES}${CURRENT_SHA:0:8}\n"
+  if [ "$HAS_SOURCE" = true ]; then
+    [ -n "$CHANGELOG" ] && ! echo "$ALL" | grep -q "$CHANGELOG" && errors="${errors}- Source files modified but $CHANGELOG not updated.\n"
+    errors="${errors}- Uncommitted source changes. Commit before finishing.\n"
+  fi
+
+  if [ "$HAS_SOURCE" = false ] && [ -z "$STAGED" ] && [ -n "$SESSION_START" ]; then
+    local untested_fixes="" commit_log current_sha="" current_msg="" current_has_test=false current_has_source=false line
+    # --no-merges: git log --name-only emits no files for merge commits, so a merge subject containing "fix" would falsely register as an untested fix.
+    commit_log=$(git log --no-merges --format="COMMIT %H %s" --name-only "${SESSION_START}..HEAD" 2>/dev/null || true)
+    while IFS= read -r line; do
+      if [[ "$line" == COMMIT\ * ]]; then
+        # Only flag if source was actually touched — config/doc-only fixes can't have a code regression test.
+        if [ -n "$current_sha" ] && echo "$current_msg" | grep -qiE '\b(fix|bug|patch|hotfix|repair|resolve)\b'; then
+          [ "$current_has_source" = true ] && [ "$current_has_test" = false ] && untested_fixes="${untested_fixes}${current_sha:0:8}\n"
+        fi
+        current_sha="${line#COMMIT }" current_sha="${current_sha%% *}"
+        current_msg="${line#COMMIT * }"
+        current_has_test=false
+        current_has_source=false
+      elif [ -n "$line" ] && [ -n "$current_sha" ]; then
+        is_test_file "$line" && current_has_test=true
+        is_source_file "$line" 2>/dev/null && current_has_source=true
       fi
-      CURRENT_SHA="${line#COMMIT }" CURRENT_SHA="${CURRENT_SHA%% *}"
-      CURRENT_MSG="${line#COMMIT * }"
-      CURRENT_HAS_TEST=false
-    elif [ -n "$line" ] && [ -n "$CURRENT_SHA" ]; then
-      is_test_file "$line" && CURRENT_HAS_TEST=true
+    done <<< "$commit_log"
+    if [ -n "$current_sha" ] && echo "$current_msg" | grep -qiE '\b(fix|bug|patch|hotfix|repair|resolve)\b'; then
+      [ "$current_has_source" = true ] && [ "$current_has_test" = false ] && untested_fixes="${untested_fixes}${current_sha:0:8}\n"
     fi
-  done <<< "$COMMIT_LOG"
-  # Process last commit
-  if [ -n "$CURRENT_SHA" ] && ! echo "$CURRENT_MSG" | grep -qiE '^Merge ' && echo "$CURRENT_MSG" | grep -qiE '^(fix|bugfix|bug|patch|hotfix|repair|resolve)(\(|:|!|\b)'; then
-    [ "$CURRENT_HAS_TEST" = false ] && UNTESTED_FIXES="${UNTESTED_FIXES}${CURRENT_SHA:0:8}\n"
+    if [ -n "$untested_fixes" ]; then
+      errors="${errors}- One or more commits look like a bug fix but have NO regression test.\n"
+    fi
   fi
-  if [ -n "$UNTESTED_FIXES" ]; then
-    ERRORS="${ERRORS}- One or more commits look like a bug fix but have NO regression test.\n"
-  fi
-fi
 
-TRANSCRIPT_PATH=$(echo "$INPUT" | jq -r '.transcript_path // empty' 2>/dev/null || echo "")
-if [ -n "$TRANSCRIPT_PATH" ] && [ -f "$TRANSCRIPT_PATH" ] && [ -n "$CTX_HISTORY" ]; then
-  SIZE=$(wc -c < "$TRANSCRIPT_PATH" 2>/dev/null || echo 0)
-  if [ "$SIZE" -gt 150000 ]; then
-    CTX_DIRTY=$(git diff --name-only -- "$CTX_HISTORY" 2>/dev/null || true)
-    CTX_STAGED=$(git diff --cached --name-only -- "$CTX_HISTORY" 2>/dev/null || true)
-    RECENT=$(git log --oneline -5 --diff-filter=M -- "$CTX_HISTORY" 2>/dev/null || true)
-    [ -z "$CTX_DIRTY" ] && [ -z "$CTX_STAGED" ] && [ -z "$RECENT" ] && ERRORS="${ERRORS}- Substantial session but $CTX_HISTORY not updated.\n"
+  local transcript_path size ctx_dirty ctx_staged recent
+  transcript_path=$(echo "$INPUT" | jq -r '.transcript_path // empty' 2>/dev/null || echo "")
+  if [ -n "$transcript_path" ] && [ -f "$transcript_path" ] && [ -n "$CTX_HISTORY" ]; then
+    size=$(wc -c < "$transcript_path" 2>/dev/null || echo 0)
+    if [ "$size" -gt 150000 ]; then
+      ctx_dirty=$(git diff --name-only -- "$CTX_HISTORY" 2>/dev/null || true)
+      ctx_staged=$(git diff --cached --name-only -- "$CTX_HISTORY" 2>/dev/null || true)
+      recent=$(git log --oneline -5 --diff-filter=M -- "$CTX_HISTORY" 2>/dev/null || true)
+      [ -z "$ctx_dirty" ] && [ -z "$ctx_staged" ] && [ -z "$recent" ] && errors="${errors}- Substantial session but $CTX_HISTORY not updated.\n"
+    fi
   fi
-fi
+
+  printf "%s" "$errors"
+}
+
+ERRORS=$(compute_errors)
+
+# Session-scope error dedup: suffix with session-start SHA so prior sessions are naturally orphaned (different suffix, no cross-session leakage).
+ERRORS_MARKER="/tmp/.claude_stop_errors_hash_${HASH}_${SESSION_START:-no-session}"
 
 if [ -n "$ERRORS" ]; then
+  ERRORS_HASH=$(printf '%s' "$ERRORS" | shasum -a 256 | cut -c1-16)
+  # Same error set already surfaced this session — staying silent avoids amplifying imperative pressure on the agent ("Complete these, then finish") on retries.
+  if [ -f "$ERRORS_MARKER" ] && [ "$(cat "$ERRORS_MARKER" 2>/dev/null)" = "$ERRORS_HASH" ]; then
+    exit 0
+  fi
+  printf '%s' "$ERRORS_HASH" > "$ERRORS_MARKER"
   REASON=$(printf "Unfinished steps:\n\n%b\nComplete these, then finish." "$ERRORS")
   jq -n --arg r "$REASON" '{"decision": "block", "reason": $r}'
   exit 0
 fi
+
+# Errors cleared — drop any stale marker so the next fresh error set is seen.
+[ -f "$ERRORS_MARKER" ] && rm -f "$ERRORS_MARKER"
 
 # Advisory: suggest session handoff and plan closure if work was done
 if [ -n "$SESSION_START" ]; then
@@ -100,10 +133,12 @@ if [ -n "$SESSION_START" ]; then
 
     if [ -n "$ADVISORIES" ]; then
       MSG=$(printf "Session produced %s commit(s).\n\n%b" "$SESSION_COMMITS" "$ADVISORIES")
-      jq -n --arg m "$MSG" '{
+      # Stop hooks support hookSpecificOutput.additionalContext as of Claude Code >= 2.x (2026),
+      # so the advisory is delivered as structured context rather than stderr.
+      jq -n --arg ctx "$MSG" '{
         "hookSpecificOutput": {
           "hookEventName": "Stop",
-          "additionalContext": $m
+          "additionalContext": $ctx
         }
       }'
     fi

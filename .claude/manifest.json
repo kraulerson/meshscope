@@ -1,9 +1,9 @@
 {
-  "frameworkVersion": "4.0.0",
-  "frameworkCommit": "2abde30",
+  "frameworkVersion": "4.3.0",
+  "frameworkCommit": "0396a1a",
   "frameworkRepo": "kraulerson/claude-dev-framework",
   "localClonePath": "~/.claude-dev-framework",
-  "lastSyncDate": "2026-04-05T14:07:51Z",
+  "lastSyncDate": "2026-07-09T17:20:37Z",
   "profile": "desktop-app",
   "profileInherits": [
     "_base"
@@ -26,10 +26,12 @@
   ],
   "activeHooks": [
     "session-start",
+    "compliance-reinforce",
+    "config-guard",
     "enforce-evaluate",
     "enforce-superpowers",
     "stop-checklist",
-    "pre-compact-reminder",
+    "session-end",
     "marker-tracker",
     "marker-guard",
     "enforce-plan-tracking",
@@ -52,7 +54,8 @@
       ],
       "protectedBranches": [
         "main"
-      ]
+      ],
+      "verificationGates": []
     },
     "branches": []
   },
