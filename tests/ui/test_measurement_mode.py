@@ -11,6 +11,13 @@ from meshscope.core.mesh_data import Measurement
 from meshscope.ui.info_panel import InfoPanel
 from meshscope.ui.main_window import MainWindow
 
+from ._native_window import requires_native_window
+
+# These tests construct MainWindow/ViewportWidget, which build a VTK render
+# window from QWidget.winId(). That handle is not dereferenceable under the
+# offscreen QPA plugin, so the process segfaults instead of raising.
+pytestmark = requires_native_window
+
 
 @pytest.fixture()
 def info_panel(qapp: QApplication) -> InfoPanel:
