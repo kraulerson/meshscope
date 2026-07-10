@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 from meshscope.core.exceptions import MeshExportError
 from meshscope.core.mesh_data import BoundingBox, MeshData, MeshMetadata
@@ -95,6 +97,14 @@ class TestExportMeshAtomicWrite:
         assert len(files) == 1
         assert files[0].name == "output.stl"
 
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason=(
+            "needs POSIX permissions: on Windows os.chmod is ignored for "
+            "directories, so the directory stays writable and the export "
+            "correctly succeeds"
+        ),
+    )
     def test_export_to_readonly_dir_raises(self, tmp_path: Path) -> None:
         readonly_dir = tmp_path / "readonly"
         readonly_dir.mkdir()

@@ -1,6 +1,7 @@
 """Tests for file path validation and format detection."""
 
 import stat
+import sys
 from pathlib import Path
 from unittest.mock import patch
 
@@ -54,6 +55,14 @@ class TestValidatePath:
             with pytest.raises(FileTooLargeError, match="500MB"):
                 validate_path(f)
 
+    @pytest.mark.skipif(
+        sys.platform == "win32",
+        reason=(
+            "needs POSIX permissions: on Windows os.chmod only toggles the "
+            "read-only attribute, so the file stays readable and validate_path "
+            "correctly does not raise"
+        ),
+    )
     def test_file_not_readable(self, tmp_path: Path) -> None:
         f = tmp_path / "secret.stl"
         f.write_bytes(b"\x00" * 100)
