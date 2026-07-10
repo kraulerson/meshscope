@@ -10,7 +10,7 @@ fonttools==4.62.1
 identify==2.6.18
 iniconfig==2.3.0
 kiwisolver==1.5.0
-lxml==6.0.2
+lxml==6.1.0
 matplotlib==3.10.8
 mypy==1.16.0
 mypy_extensions==1.1.0
@@ -32,7 +32,7 @@ pyparsing==3.3.2
 PySide6==6.9.3
 PySide6_Addons==6.9.3
 PySide6_Essentials==6.9.3
-pytest==8.4.1
+pytest==9.0.3
 pytest-qt==4.4.0
 python-dateutil==2.9.0.post0
 python-discovery==1.2.1
@@ -44,6 +44,6 @@ tomli==2.4.1
 trimesh==4.7.4
 typing_extensions==4.15.0
 virtualenv==21.2.0
-vtk==9.4.2
+vtk==9.5.1
 wcwidth==0.6.0
 zstandard==0.25.0
