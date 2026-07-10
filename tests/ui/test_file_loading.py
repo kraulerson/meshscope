@@ -9,6 +9,13 @@ from PySide6.QtWidgets import QApplication
 
 from meshscope.ui.main_window import MainWindow
 
+from ._native_window import requires_native_window
+
+# These tests construct MainWindow/ViewportWidget, which build a VTK render
+# window from QWidget.winId(). That handle is not dereferenceable under the
+# offscreen QPA plugin, so the process segfaults instead of raising.
+pytestmark = requires_native_window
+
 FIXTURES = Path(__file__).parent.parent / "fixtures"
 VALID = FIXTURES / "valid"
 INVALID = FIXTURES / "invalid"

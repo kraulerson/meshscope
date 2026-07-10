@@ -67,7 +67,15 @@ jobs:
 
       - name: Install system dependencies (Linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libegl1 libgl1-mesa-dev libxkbcommon0
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            xvfb \
+            libegl1 libgl1 libgl1-mesa-dev libgl1-mesa-dri libglx-mesa0 \
+            libxkbcommon0 libxkbcommon-x11-0 libdbus-1-3 \
+            libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
+            libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 \
+            libxcb-xkb1
 
       - name: Install dependencies
         run: pip install -r requirements.txt && pip install -e . --no-deps
@@ -75,7 +83,24 @@ jobs:
       - name: Install dev tools
         run: pip install pytest pytest-qt
 
-      - name: Run tests
+      # QVTKRenderWindowInteractor hands QWidget.winId() to
+      # vtkRenderWindow.SetWindowInfo(), which casts it to a native pointer and
+      # dereferences it. The offscreen QPA plugin returns synthetic handles, so
+      # that cast segfaults. Linux therefore gets a real X server (xvfb) plus
+      # software GL (llvmpipe) and runs the full suite, render-window tests
+      # included. See tests/ui/_native_window.py.
+      - name: Run tests (Linux, virtual display)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: xvfb-run -a pytest || [ $? -eq 5 ]
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+
+      # macOS and Windows runners provide no GL context usable by VTK, so they
+      # run headless; the render-window tests skip themselves rather than crash.
+      - name: Run tests (macOS/Windows, offscreen)
+        if: runner.os != 'Linux'
+        shell: bash
         run: pytest || [ $? -eq 5 ]
         env:
           QT_QPA_PLATFORM: offscreen
